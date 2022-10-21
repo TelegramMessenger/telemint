@@ -1,0 +1,50 @@
+true$_ = True;
+// EMPTY False;
+bool_false$0 = Bool;
+bool_true$1 = Bool;
+bool_false$0 = BoolFalse;
+bool_true$1 = BoolTrue;
+
+nft_cmd_transfer#5fcc3d14 query_id:uint64
+  new_owner:MsgAddress response_destination:MsgAddress custom_payload:(Maybe ^Cell)
+  forward_amount:Grams forward_payload:(Either Cell ^Cell) = NftCmd;
+nft_cmd_get_static_data#2fcb26a2 query_id:uint64 = NftCmd;
+nft_cmd_edit_content#1a0b9d51 query_id:uint64 payload:Cell = NftEditCmd;
+nft_collection_cmd_get_royalty_params#693d3950 = NftCollectionCmd;
+
+nft_answer_ownership_assigned#05138d91 query_id:uint64 prev_owner:MsgAddress forward_payload:(Either Cell ^Cell) = NftAnswer;
+nft_answer_excesses#d53276db query_id:uint64 = NftAnswer;
+nft_royalty_params#_ numerator:uint16 denominator:uint16 destination:MsgAddress = NftRoyaltyParams;
+
+teleitem_bid_info#38127de1 bid:Grams bid_ts:uint32 = TeleitemBidInfo;
+teleitem_last_bid bidder_address:MsgAddressInt bid:Grams bid_ts:uint32 = TeleitemLastBid;
+teleitem_auction_state$_ last_bid:(Maybe ^TeleitemLastBid) min_bid:Grams end_time:uint32 = TeleitemAuctionState;
+teleitem_auction_config$_ beneficiary_address:MsgAddressInt initial_min_bid:Grams max_bid:Grams min_bid_step:uint8 min_extend_time:uint32 duration:uint32 = TeleitemAuctionConfig;
+teleitem_auction$_ state:^TeleitemAuctionState config:^TeleitemAuctionConfig = TeleitemAuction;
+
+telimint_text$_ len:(## 8) text:(bits (len * 8)) = TelemintText;
+telemint_token_info$_ name:TelemintText domain:TelemintText = TelemintTokenInfo;
+
+teleitem_return_bid#a43227e1 query_id:int64 = TeleitemAnswer;
+teleitem_ok#a37a0983 query_id:int64 = TeleitemAnswer;
+
+teleitem_cmd_nft$_ _:NftCmd = TeleitemMsg;
+teleitem_msg_deploy_head#299a3e15 sender_address:MsgAddressInt bid:Grams = TeleitemMsgDeployHead;
+teleitem_msg_deploy#299a3e15 sender_address:MsgAddressInt bid:Grams token_info:^TelemintTokenInfo nft_content:^Cell
+  auction_config:^TeleitemAuctionConfig royalty_params:^NftRoyaltyParams = TeleitemMsg;
+teleitem_msg_start_auction#487a8e81 query_id:int64 auction_config:^TeleitemAuctionConfig = TeleitemMsg;
+teleitem_msg_cancel_auction#371638ae query_id:int64 = TeleitemMsg;
+
+teleitem_config$_ item_index:bits256 collection_address:MsgAddressInt = TeleitemConfig;
+teleitem_content$_ nft_content:^Cell dns:DNS_RecordSet token_info:^TelemintTokenInfo = TeleitemContent;
+teleitem_state$_ owner_address:MsgAddressInt content:^TeleitemContent
+  auction:(Maybe ^TeleitemAuction) royalty_params:^NftRoyaltyParams = TeleitemState;
+
+teleitem_data$_ config:^TeleitemConfig state:(Maybe ^TeleitemState) = TeleitemData;
+
+telemint_data$_ touched:Bool subwallet_id:uint32 public_key:bits256 collection_content:^Cell nft_item_code:^Cell
+  full_domain:^TelemintText royalty_params:^NftRoyaltyParams = TelemintData;
+
+telemint_unsigned_deploy$_ subwallet_id:uint32 valid_since:uint32 valid_till:uint32 token_name:TelemintText
+  content:^Cell auction_config:^TeleitemAuctionConfig royalty_params:(Maybe ^NftRoyaltyParams) = TelemintUnsignedDeploy;
+telemint_msg_deploy#4637289a  sig:bits512 msg:TelemintUnsignedDeploy = TelemintMsg;
