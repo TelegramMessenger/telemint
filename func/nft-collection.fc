@@ -35,6 +35,8 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_
     }
     slice sender_address = cs~load_msg_addr();
 
+    throw_if(err::wrong_topup_comment, in_msg_body.slice_empty?());
+    
     int op = in_msg_body~load_uint(32);
 
     if (op == 0) { ;; regular money transfer
