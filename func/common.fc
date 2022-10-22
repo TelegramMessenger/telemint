@@ -81,17 +81,21 @@ int get_top_domain_bits(slice domain) inline {
     return i;
 }
 
-_ load_text(slice cs) inline {
+;; (<slice> cs) -> (<slice> cs, <slice> text)
+(slice, slice) load_text(slice cs) inline {
     int len = cs~load_uint(8);
     slice text = cs~load_bits(len * 8);
     return (cs, text);
 }
-_ load_text_ref(slice cs) inline {
+
+;; (<slice> cs) -> (<slice> cs, <slice> text)
+(slice, slice) load_text_ref(slice cs) inline {
     slice text_cs = cs~load_ref().begin_parse();
     slice text = text_cs~load_text();
     return (cs, text);
 }
 
+;; (<builder> b, <slice> text) -> (<builder> b')
 builder store_text(builder b, slice text) inline {
     int len = slice_bits(text);
     throw_unless(err::invalid_length, mod(len, 8) == 0);
@@ -99,6 +103,7 @@ builder store_text(builder b, slice text) inline {
             .store_slice(text);
 }
 
+;; <cell> -> (<string> name, <string> domain)
 (slice, slice) unpack_token_info(cell c) inline {
     slice cs = c.begin_parse();
     var res = (
@@ -109,6 +114,7 @@ builder store_text(builder b, slice text) inline {
     return res;
 }
 
+;; (<string> name, <string> domain) -> <cell>
 cell pack_token_info(slice name, slice domain) {
     return begin_cell()
             .store_text(name)
@@ -126,6 +132,12 @@ cell pack_state_init(cell code, cell data) inline {
 }
 
 cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
+    ;; 0x18 = [  01 1000]
+    ;;  0 | int_msg_info$0
+    ;;  1 |  ihr_disabled:Bool = True
+    ;;  1 |  bounce:Bool       = True
+    ;;  0 |  bounced:Bool      = False
+    ;; 00 |  src:MsgAddress    = addr_none$00
     return begin_cell()
             .store_uint(0x18, 6) ;; 011000 tag=0, ihr_disabled=1, allow_bounces=1, bounced=1, add_none
             .store_slice(dest)
@@ -137,6 +149,12 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
 }
 
 () send_msg(slice to_address, int amount, int op, int query_id, builder payload, int mode) impure inline {
+    ;; 0x10 = [  01 0000]
+    ;;  0 | int_msg_info$0
+    ;;  1 |  ihr_disabled:Bool = True
+    ;;  0 |  bounce:Bool       = False
+    ;;  0 |  bounced:Bool      = False
+    ;; 00 |  src:MsgAddress    = addr_none$00
     var msg = begin_cell()
             .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 010000
             .store_slice(to_address)
@@ -154,14 +172,15 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
 
 slice calculate_address(int wc, cell state_init) inline {
     slice res = begin_cell()
-            .store_uint(4, 3)
-            .store_int(wc, 8)
-            .store_uint(cell_hash(state_init), 256)
-            .end_cell()
+            .store_uint(4, 3)                       ;; addr_std$10 anycast:(Maybe Anycast) nothing$0
+            .store_int(wc, 8)                       ;; workchain_id:int8
+            .store_uint(cell_hash(state_init), 256) ;; address:uint256
+            .end_cell()                             ;; = MsgAddressInt
             .begin_parse();
     return res;
 }
 
+;; <cell> -> (<uint256> item_index, <addr> collection_address)
 (int, slice) unpack_item_config(cell c) inline {
     slice cs = c.begin_parse();
     var res = (
@@ -172,6 +191,7 @@ slice calculate_address(int wc, cell state_init) inline {
     return res;
 }
 
+;; (<uint256> item_index, <addr> collection_address) -> <cell>
 cell pack_item_config(int item_index, slice collection_address) inline {
     return begin_cell()
             .store_uint(item_index, 256)
@@ -179,6 +199,7 @@ cell pack_item_config(int item_index, slice collection_address) inline {
             .end_cell();
 }
 
+;; <cell> -> (<item_config> config, <item_state?> state)
 (cell, cell) unpack_item_data() inline {
     var cs = get_data().begin_parse();
     var res = (cs~load_ref(), cs~load_dict());
@@ -186,6 +207,7 @@ cell pack_item_config(int item_index, slice collection_address) inline {
     return res;
 }
 
+;; (<int16> numerator, <int16> denumerator, <addr> destination) -> <cell>
 cell pack_nft_royalty_params(int numerator, int denumerator, slice destination) inline {
     return begin_cell()
             .store_int(numerator, 16)
@@ -194,6 +216,7 @@ cell pack_nft_royalty_params(int numerator, int denumerator, slice destination) 
             .end_cell();
 }
 
+;; <cell> -> (<int16> numerator, <int16> denumerator, <addr> destination)
 (int, int, slice) unpack_nft_royalty_params(cell c) inline {
     var cs = c.begin_parse();
     var res = (
@@ -205,6 +228,7 @@ cell pack_nft_royalty_params(int numerator, int denumerator, slice destination) 
     return res;
 }
 
+;; (<item_config> config, <item_state?> state) -> <cell>
 cell pack_item_data(cell config, cell state) inline {
     return begin_cell()
             .store_ref(config)
@@ -212,6 +236,7 @@ cell pack_item_data(cell config, cell state) inline {
             .end_cell();
 }
 
+;; (<cell> nft_content, <dict:uint256> dns, <token_info> token_info) -> <cell>
 cell pack_item_content(cell nft_content, cell dns, cell token_info) inline {
     return begin_cell()
             .store_ref(nft_content)
@@ -220,6 +245,7 @@ cell pack_item_content(cell nft_content, cell dns, cell token_info) inline {
             .end_cell();
 }
 
+;; <cell> -> (<cell> nft_content, <dict:uint256> dns, <token_info> token_info)
 (cell, cell, cell) unpack_item_content(cell c) inline {
     var cs = c.begin_parse();
     var res = (
@@ -231,6 +257,7 @@ cell pack_item_content(cell nft_content, cell dns, cell token_info) inline {
     return res;
 }
 
+;; <cell> -> (<addr> owner_address, <item_content> content, <auction?> auction, <nft_royalty_params> royalty_params)
 (slice, cell, cell, cell) unpack_item_state(cell c) inline {
     var cs = c.begin_parse();
     var res = (
@@ -243,6 +270,7 @@ cell pack_item_content(cell nft_content, cell dns, cell token_info) inline {
     return res;
 }
 
+;; (<addr> owner_address, <item_content> content, <auction?> auction, <nft_royalty_params> royalty_params) -> <cell>
 cell pack_item_state(slice owner_address, cell content, cell auction, cell royalty_params) inline {
     return begin_cell()
             .store_slice(owner_address)
@@ -252,7 +280,8 @@ cell pack_item_state(slice owner_address, cell content, cell auction, cell royal
             .end_cell();
 }
 
-_ save_item_data(config, state) impure inline {
+;; (<item_config> config, <item_state?> state) -> ()
+() save_item_data(config, state) impure inline {
     set_data(pack_item_data(config, state));
 }
 
@@ -262,6 +291,7 @@ cell pack_item_state_init(int item_index, cell item_code) inline {
     return pack_state_init(item_code, item_data);
 }
 
+;; (<addr> sender_address, <grams> bid, <token_info> info, <cell> content, <auction_config> auction_config, <nft_royalty_params> royalty_params) -> <cell>
 cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell content, cell auction_config, cell royalty_params) inline {
     return begin_cell()
             .store_uint(op::teleitem_msg_deploy, 32)
@@ -274,6 +304,7 @@ cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell con
             .end_cell();
 }
 
+;; <cell> -> (<addr> sender_address, <grams> bid, <token_info> info, <cell> content, <auction_config> auction_config, <nft_royalty_params> royalty_params)
 (slice, int, cell, cell, cell, cell) unpack_teleitem_msg_deploy(slice cs) inline {
     return (cs~load_msg_addr(),
             cs~load_grams(),
@@ -283,6 +314,7 @@ cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell con
             cs~load_ref());
 }
 
+;; <cell> -> (<int1> touched, <uint32> subwallet_id, <uint256> owner_key, <item_content> content, <code> item_code, <string> full_domain, <nft_royalty_params> royalty_params)
 (int, int, int, cell, cell, slice, cell) unpack_collection_data() inline {
     var cs = get_data().begin_parse();
     var res = (
@@ -298,7 +330,8 @@ cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell con
     return res;
 }
 
-_ save_collection_data(int touched, int subwallet_id, int owner_key, cell content, cell item_code, slice full_domain, cell royalty_params) impure inline {
+;; (<int1> touched, <uint32> subwallet_id, <uint256> owner_key, <item_content> content, <code> item_code, <string> full_domain, <nft_royalty_params> royalty_params) -> <cell>
+() save_collection_data(int touched, int subwallet_id, int owner_key, cell content, cell item_code, slice full_domain, cell royalty_params) impure inline {
     cell data = begin_cell()
             .store_int(touched, 1)
             .store_uint(subwallet_id, 32)
@@ -311,7 +344,8 @@ _ save_collection_data(int touched, int subwallet_id, int owner_key, cell conten
     set_data(data);
 }
 
-_ unpack_signed_cmd(slice cs) inline {
+;; <cell> -> (<b512> signature, <uint256> *slice_hash, <int32> subwallet_id, <uint32> valid_since, <uint32> valid_till, <slice> cmd)
+(slice, int, int, int, int, slice) unpack_signed_cmd(slice cs) inline {
     return (
             cs~load_bits(512), ;; signature
             slice_hash(cs), ;; hash
@@ -322,7 +356,8 @@ _ unpack_signed_cmd(slice cs) inline {
     );
 }
 
-_ unpack_deploy_msg(slice cs) inline {
+;; <cell> -> (<string> token_name, <cell> content, <cell> auction_config, <nft_royalty_params?> royalty)
+(slice, cell, cell, cell) unpack_deploy_msg(slice cs) inline {
     var res = (
             cs~load_text(), ;; token_name
             cs~load_ref(), ;; content
@@ -334,6 +369,8 @@ _ unpack_deploy_msg(slice cs) inline {
 }
 
 ;;teleitem_last_bid bidder_address:MsgAddressInt bid:Grams bid_ts:uint32 = TeleitemLastBid;
+
+;; <cell> -> (<addr> bidder_address, <grams> bid, <uint32> bid_ts)
 (slice, int, int) unpack_last_bid(cell c) inline {
     slice cs = c.begin_parse();
     var res = (
@@ -344,6 +381,8 @@ _ unpack_deploy_msg(slice cs) inline {
     cs.end_parse();
     return res;
 }
+
+;; (<addr> bidder_address, <grams> bid, <uint32> bid_ts) -> <cell>
 cell pack_last_bid(slice bidder_address, int bid, int bid_ts) inline {
     return begin_cell()
             .store_slice(bidder_address)
@@ -353,6 +392,8 @@ cell pack_last_bid(slice bidder_address, int bid, int bid_ts) inline {
 }
 
 ;;teleitem_auction_state$_ last_bid:(Maybe ^TeleitemLastBid) min_bid:Grams end_time:uint32 = TeleitemAuctionState;
+
+;; <cell> -> (<last_bid?> last_bid, <grams> min_bid, <uint32> end_time)
 (cell, int, int) unpack_auction_state(cell c) inline {
     slice cs = c.begin_parse();
     var res = (
@@ -363,6 +404,8 @@ cell pack_last_bid(slice bidder_address, int bid, int bid_ts) inline {
     cs.end_parse();
     return res;
 }
+
+;; (<last_bid?> last_bid, <grams> min_bid, <uint32> end_time) -> <cell>
 cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
     return begin_cell()
             .store_maybe_ref(last_bid)
@@ -371,6 +414,8 @@ cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
             .end_cell();
 }
 
+;; <cell> -> (<addr> beneficiary_address, <grams> initial_min_bod, <grams> max_bid, 
+;;            <uint8> min_bid_step, <uint32> min_extend_time, <uint32> duration)
 (slice, int, int, int, int, int) unpack_auction_config(cell c) inline {
     slice cs = c.begin_parse();
     var res = (
@@ -386,6 +431,8 @@ cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
 }
 
 ;;teleitem_auction$_ state:^TeleitemAuctionState config:^TeleitemConfig = TeleitemAuction;
+
+;; <cell> -> (<auction_state> state, <auction_config> config)
 (cell, cell) unpack_auction(cell c) inline {
     slice cs = c.begin_parse();
     var res = (
@@ -396,6 +443,7 @@ cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
     return res;
 }
 
+;; (<auction_state> state, <auction_config> config) -> <cell>
 cell pack_auction(cell state, cell config) inline {
     if (null?(state)) {
         return null();
@@ -406,6 +454,7 @@ cell pack_auction(cell state, cell config) inline {
             .end_cell();
 }
 
+;; <cell> -> (<uint64> query_id, <addr> new_owner_address, <addr> response_destination, <cell?> custom_payload, <grams> forward_amount, <slice> forward_payload)
 (int, slice, slice, cell, int, slice) unpack_nft_cmd_transfer(slice cs) inline {
     return (
             cs~load_uint(64),
