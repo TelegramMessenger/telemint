@@ -77,6 +77,11 @@ cell prepare_auction(cell auction_config) {
             (min_bid_step <= 0) | (min_extend_time > 60 * 60 * 24 * 7) | (duration > 60 * 60 * 24 * 365)) {
         return null();
     }
+    ;; WARNING: beneficiary_address is obtained from cs~load_msg_addr that is LDMSGADDR and it by documentation loads MsgAddress
+    ;; While in tlb, teleitem_auction_config$_ beneficiary_address:MsgAddressInt, and MsgAddress can be also MsgAddressExt, including addr_none$00
+    ;; Therefore it is possible to abrubtly push in such address violating the spec and possibly causing problems in send_money in maybe_end_auction
+    ;; Need to check that address is MsgAddressInt, the easiest way is to use parse_std_addr (REWRITESTDADDR) that will fail for non MsgAddressInt
+    (_, _) = parse_std_addr(beneficiary_address);
     cell auction_state = pack_auction_state(null(), initial_min_bid, now() + duration);
     return pack_auction(auction_state, auction_config);
 }
