@@ -4,10 +4,11 @@
     throw_unless(err::invalid_signature, check_signature(hash, signature, public_key));
     throw_unless(err::wrong_subwallet_id, subwallet_id == got_subwallet_id);
     int ts = now();
-    throw_unless(err::not_yet_valid_signature, valid_since < ts);
-    throw_unless(err::expired_signature, ts < valid_till);
+    ;; In theory comparisons should be not so strict because variables are valid since and valid till, not valid after and before
+    throw_unless(err::not_yet_valid_signature, valid_since <= ts);
+    throw_unless(err::expired_signature, ts <= valid_till);
     return cmd;
-
+    ;; SAFE: considering cmd containing valid data since it is signed by remote server that is out of scope of this research
 }
 
 () deploy_item(slice sender_address, int bid, cell item_code, slice cmd, slice full_domain, cell default_royalty_params) impure {
