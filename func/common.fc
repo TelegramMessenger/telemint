@@ -27,6 +27,7 @@ const int op::report_static_data = 0x8b771735;
 const int op::get_royalty_params = 0x693d3950;
 const int op::report_royalty_params = 0xa8cb00ad;
 
+const int err::invalid_subdomain_slice_size = 70;
 const int err::invalid_length = 201;
 const int err::invalid_signature = 202;
 const int err::wrong_subwallet_id = 203;
@@ -49,6 +50,8 @@ const int err::forbidden_auction = 220;
 const int err::already_has_stakes = 221;
 const int err::auction_already_started = 222;
 const int err::invalid_auction_config = 223;
+const int err::forbidden_chain = 333;
+const int err:invalid_subdomain_starting_byte = 413;
 
 int mod(int x, int y) asm "MOD";
 int equal_slices(slice a, slice b) asm "SDEQ";
@@ -59,7 +62,7 @@ int workchain() asm "0 PUSHINT";
 
 () force_chain(slice addr) impure inline {
     (int wc, _) = parse_std_addr(addr);
-    throw_unless(333, wc == workchain());
+    throw_unless(err::forbidden_chain, wc == workchain());
 }
 
 slice zero_address() inline {

@@ -355,10 +355,10 @@ slice get_username() method_id {
     (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
 
     int subdomain_bits = slice_bits(subdomain);
-    throw_unless(70, mod(subdomain_bits, 8) == 0);
+    throw_unless(err::invalid_subdomain_slice_size, mod(subdomain_bits, 8) == 0);
 
     int starts_with_zero_byte = subdomain.preload_int(8) == 0;
-    throw_unless(413, starts_with_zero_byte);
+    throw_unless(err:invalid_subdomain_starting_byte, starts_with_zero_byte);
 
     if (subdomain_bits > 8) { ;; more than "." requested
         category = "dns_next_resolver"H;

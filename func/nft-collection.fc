@@ -86,7 +86,7 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
 }
 
 (int, cell) dnsresolve(slice subdomain, int category) method_id {
-    throw_unless(70, mod(slice_bits(subdomain), 8) == 0);
+    throw_unless(err::invalid_subdomain_slice_size, mod(slice_bits(subdomain), 8) == 0);
 
     int starts_with_zero_byte = subdomain.preload_int(8) == 0;
 
