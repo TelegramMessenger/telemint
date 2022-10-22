@@ -145,7 +145,7 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
             .store_uint(op, 32)
             .store_uint(query_id, 64);
 
-    if (~ builder_null?(payload)) {
+    if (~builder_null?(payload)) {
         msg = msg.store_builder(payload);
     }
 
