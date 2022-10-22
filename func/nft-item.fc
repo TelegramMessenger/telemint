@@ -239,6 +239,8 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         ;; HOWEVER, no data will be updated since save_item_data is not called in this flow. 
         ;; Therefore, send_msg and send_money in maybe_end_auction will be called multiple times that is not desirable to say the least.
         ;; On the other hand, calling pack_item_state and save_item_data each time for simple #topup may be also unwanted behaviour.
+        ;;
+        ;; Update: It seems even worse, not just owner but anyone can send #topup to trigger this issue.
         if (flags == -1) {
             ;; flags equals -1 if, and only if, auction was running when #topup message was received from the new owner.
             ;; Why? If auction keeps running the previous to (op == 0) condition (~ cell_null?(auction)) will take precedence.
