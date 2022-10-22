@@ -62,9 +62,7 @@ int workchain() asm "0 PUSHINT";
     throw_unless(333, wc == workchain());
 }
 
-slice zero_address() inline {
-    return begin_cell().store_uint(0, 2).end_cell().begin_parse();
-}
+slice zero_address() asm "b{00} PUSHSLICE";
 
 ;; "ton\0test\0" -> "ton"
 int get_top_domain_bits(slice domain) inline {
