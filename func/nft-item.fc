@@ -83,6 +83,7 @@ cell prepare_auction(cell auction_config) {
 
 cell deploy_item(int my_balance, slice msg) {
     ;; Do not throw errors here!
+    ;; -- FYI: unpack_teleitem_msg_deploy can throw cell underflow here, in case of corrupted message received.
     (slice bidder_address, int bid, cell token_info, cell nft_content, cell auction_config, cell royalty_params) = unpack_teleitem_msg_deploy(msg);
     cell auction = prepare_auction(auction_config);
     if (cell_null?(auction)) {
@@ -334,6 +335,8 @@ slice get_username() method_id {
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
     if (cell_null?(auction)) {
         ;; Do not throw error, so it is easy to check if get_telemint_auction_config method exists
+        ;; -- Not sure it worth it, when method is not exists specific error will be thrown. Maybe better to throw err::no_auction? 
+        ;; -- I think it will be cleaner to understand that auction is not exists.
         return (null(), 0, 0, 0, 0, 0);
     }
     (cell auction_state, cell auction_config) = unpack_auction(auction);
