@@ -102,8 +102,10 @@ slice transfer_ownership(int my_balance, slice owner_address, slice in_msg_body,
     force_chain(new_owner_address);
 
     int rest_amount = my_balance - min_tons_for_storage();
+    throw_unless(err::not_enough_funds, rest_amount >= 0); ;; not enough rest amount, will not check for response
     if (forward_amount) {
         rest_amount -= (forward_amount + fwd_fees);
+        throw_unless(err::not_enough_funds, rest_amount >= 0); ;; base nft spends fixed amount of gas, will not check for response
     }
     int need_response = response_destination.preload_uint(2) != 0; ;; if NOT addr_none: 00
     if (need_response) {
