@@ -1,4 +1,4 @@
-_ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_value) {
+(slice) unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_value) {
     (slice signature, int hash, int got_subwallet_id, int valid_since, int valid_till, slice cmd)
             = unpack_signed_cmd(signed_cmd);
     throw_unless(err::invalid_signature, check_signature(hash, signature, public_key));
