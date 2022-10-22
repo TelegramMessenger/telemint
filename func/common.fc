@@ -60,12 +60,12 @@ builder store_builder(builder to, builder from) asm "STBR";
 
 int workchain() asm "0 PUSHINT";
 
-() force_chain(slice addr) impure inline {
+() force_chain(slice addr) impure inline_ref {
     (int wc, _) = parse_std_addr(addr);
     throw_unless(err::forbidden_chain, wc == workchain());
 }
 
-slice zero_address() inline {
+slice zero_address() inline_ref {
     return begin_cell().store_uint(0, 2).end_cell().begin_parse();
 }
 
@@ -84,7 +84,7 @@ int get_top_domain_bits(slice domain) inline {
     return i;
 }
 
-_ load_text(slice cs) inline {
+_ load_text(slice cs) inline_ref {
     int len = cs~load_uint(8);
     slice text = cs~load_bits(len * 8);
     return (cs, text);
@@ -95,7 +95,7 @@ _ load_text_ref(slice cs) inline {
     return (cs, text);
 }
 
-builder store_text(builder b, slice text) inline {
+builder store_text(builder b, slice text) inline_ref {
     int len = slice_bits(text);
     throw_unless(err::invalid_length, mod(len, 8) == 0);
     return b.store_uint(slice_bits(text) / 8, 8)
@@ -139,7 +139,7 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
             .end_cell();
 }
 
-() send_msg(slice to_address, int amount, int op, int query_id, builder payload, int mode) impure inline {
+() send_msg(slice to_address, int amount, int op, int query_id, builder payload, int mode) impure inline_ref {
     var msg = begin_cell()
             .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 010000
             .store_slice(to_address)
@@ -155,7 +155,7 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
     send_raw_message(msg.end_cell(), mode);
 }
 
-slice calculate_address(int wc, cell state_init) inline {
+slice calculate_address(int wc, cell state_init) inline_ref {
     slice res = begin_cell()
             .store_uint(4, 3)
             .store_int(wc, 8)
@@ -189,7 +189,7 @@ cell pack_item_config(int item_index, slice collection_address) inline {
     return res;
 }
 
-cell pack_nft_royalty_params(int numerator, int denumerator, slice destination) inline {
+cell pack_nft_royalty_params(int numerator, int denumerator, slice destination) inline_ref {
     return begin_cell()
             .store_int(numerator, 16)
             .store_int(denumerator, 16)
@@ -197,7 +197,7 @@ cell pack_nft_royalty_params(int numerator, int denumerator, slice destination) 
             .end_cell();
 }
 
-(int, int, slice) unpack_nft_royalty_params(cell c) inline {
+(int, int, slice) unpack_nft_royalty_params(cell c) inline_ref {
     var cs = c.begin_parse();
     var res = (
             cs~load_int(16),
@@ -255,7 +255,7 @@ cell pack_item_state(slice owner_address, cell content, cell auction, cell royal
             .end_cell();
 }
 
-_ save_item_data(config, state) impure inline {
+_ save_item_data(config, state) impure inline_ref {
     set_data(pack_item_data(config, state));
 }
 
@@ -286,7 +286,7 @@ cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell con
             cs~load_ref());
 }
 
-(int, int, int, cell, cell, slice, cell) unpack_collection_data() inline {
+(int, int, int, cell, cell, slice, cell) unpack_collection_data() inline_ref {
     var cs = get_data().begin_parse();
     var res = (
             cs~load_int(1), ;; touched
@@ -337,7 +337,7 @@ _ unpack_deploy_msg(slice cs) inline {
 }
 
 ;;teleitem_last_bid bidder_address:MsgAddressInt bid:Grams bid_ts:uint32 = TeleitemLastBid;
-(slice, int, int) unpack_last_bid(cell c) inline {
+(slice, int, int) unpack_last_bid(cell c) inline_ref {
     slice cs = c.begin_parse();
     var res = (
             cs~load_msg_addr(), ;; bidder_address
@@ -347,7 +347,7 @@ _ unpack_deploy_msg(slice cs) inline {
     cs.end_parse();
     return res;
 }
-cell pack_last_bid(slice bidder_address, int bid, int bid_ts) inline {
+cell pack_last_bid(slice bidder_address, int bid, int bid_ts) inline_ref {
     return begin_cell()
             .store_slice(bidder_address)
             .store_grams(bid)
@@ -366,7 +366,7 @@ cell pack_last_bid(slice bidder_address, int bid, int bid_ts) inline {
     cs.end_parse();
     return res;
 }
-cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
+cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline_ref {
     return begin_cell()
             .store_maybe_ref(last_bid)
             .store_grams(min_bid)
@@ -374,7 +374,7 @@ cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
             .end_cell();
 }
 
-(slice, int, int, int, int, int) unpack_auction_config(cell c) inline {
+(slice, int, int, int, int, int) unpack_auction_config(cell c) inline_ref {
     slice cs = c.begin_parse();
     var res = (
             cs~load_msg_addr(), ;; beneficiary address
@@ -389,7 +389,7 @@ cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
 }
 
 ;;teleitem_auction$_ state:^TeleitemAuctionState config:^TeleitemConfig = TeleitemAuction;
-(cell, cell) unpack_auction(cell c) inline {
+(cell, cell) unpack_auction(cell c) inline_ref {
     slice cs = c.begin_parse();
     var res = (
             cs~load_ref(),
@@ -399,7 +399,7 @@ cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
     return res;
 }
 
-cell pack_auction(cell state, cell config) inline {
+cell pack_auction(cell state, cell config) inline_ref {
     if (null?(state)) {
         return null();
     }
