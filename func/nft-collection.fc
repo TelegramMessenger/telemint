@@ -1,4 +1,4 @@
-_ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_value) {
+_ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id) {
     (slice signature, int hash, int got_subwallet_id, int valid_since, int valid_till, slice cmd)
             = unpack_signed_cmd(signed_cmd);
     throw_unless(err::invalid_signature, check_signature(hash, signature, public_key));
@@ -47,7 +47,7 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_
     throw_unless(err::unknown_op, op == op::telemint_msg_deploy);
 
     var (_, subwallet_id, public_key, _, item_code, full_domain, default_royalty_params) = unpack_collection_data();
-    var cmd = unwrap_signed_cmd(in_msg_body, public_key, subwallet_id, msg_value);
+    var cmd = unwrap_signed_cmd(in_msg_body, public_key, subwallet_id);
     deploy_item(sender_address, msg_value, item_code, cmd, full_domain, default_royalty_params);
 }
 
