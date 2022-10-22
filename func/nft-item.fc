@@ -3,7 +3,7 @@ int min_tons_for_storage() asm "1000000000 PUSHINT"; ;; 1 TON
 int send_money(int my_balance, slice address, int value) impure {
     int amount_to_send = min(my_balance - min_tons_for_storage(), value);
     if (amount_to_send > 0) {
-        send_msg(address, amount_to_send, op::fill_up, cur_lt(), null(), 2); ;; ignore errors
+        send_msg(address, amount_to_send, op::fill_up, cur_lt(), null(), mf::ignore_errors);
         my_balance -= amount_to_send;
     }
     return my_balance;
@@ -35,7 +35,7 @@ int send_money(int my_balance, slice address, int value) impure {
                     .store_int(op::teleitem_bid_info, 32)
                     .store_grams(bid)
                     .store_uint(bid_ts, 32),
-            1); ;; paying fees, revert on errors
+            mf::paying_fees); ;; revert on errors
 
     if ((royalty_num > 0) & (royalty_denum > 0) & ~ equal_slices(royalty_address, beneficiary_address)) {
         int royalty_value = min(bid, muldiv(bid, royalty_num, royalty_denum));
@@ -64,7 +64,7 @@ cell process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell au
         (slice old_bidder_address, int old_bid, _) = unpack_last_bid(old_last_bid);
         int to_send = min(my_balance - min_tons_for_storage(), old_bid);
         if (to_send > 0) {
-            send_msg(old_bidder_address, to_send, op::outbid_notification, cur_lt(), null(), 1);
+            send_msg(old_bidder_address, to_send, op::outbid_notification, cur_lt(), null(), mf::paying_fees);
         }
     }
     cell new_auction_state = pack_auction_state(new_last_bid, new_min_bid, new_end_time);
@@ -119,12 +119,12 @@ slice transfer_ownership(int my_balance, slice owner_address, slice in_msg_body,
 
     if (forward_amount) {
         send_msg(new_owner_address, forward_amount, op::ownership_assigned, query_id,
-                begin_cell().store_slice(owner_address).store_slice(forward_payload), 1); ;; paying fees, revert on errors
+                begin_cell().store_slice(owner_address).store_slice(forward_payload), mf::paying_fees); ;; revert on errors
 
     }
     if (need_response) {
         force_chain(response_destination);
-        send_msg(response_destination, rest_amount, op::excesses, query_id, null(), 1); ;; paying fees, revert on errors
+        send_msg(response_destination, rest_amount, op::excesses, query_id, null(), mf::paying_fees); ;; revert on errors
     }
 
     return new_owner_address;
@@ -174,7 +174,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
             }
         }
         slice bidder_address = in_msg_body~load_msg_addr(); ;; first field in teleitem_msg_deploy
-        send_msg(bidder_address, 0, op::teleitem_return_bid, cur_lt(), null(), 64); ;; carry all the remaining value of the inbound message
+        send_msg(bidder_address, 0, op::teleitem_return_bid, cur_lt(), null(), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         return ();
     }
 
@@ -185,13 +185,13 @@ cell change_dns_record(cell dns, slice in_msg_body) {
 
     if (op == op::get_royalty_params) {
         int query_id = in_msg_body~load_uint(64);
-        send_msg(sender_address, 0, op::report_royalty_params, query_id, begin_cell().store_slice(royalty_params.begin_parse()), 64); ;; carry all the remaining value of the inbound message
+        send_msg(sender_address, 0, op::report_royalty_params, query_id, begin_cell().store_slice(royalty_params.begin_parse()), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         return ();
     }
 
     if (op == op::nft_cmd_get_static_data) {
         int query_id = in_msg_body~load_uint(64);
-        send_msg(sender_address, 0, op::report_static_data, query_id, begin_cell().store_uint(index, 256).store_slice(collection_address), 64); ;; carry all the remaining value of the inbound message
+        send_msg(sender_address, 0, op::report_static_data, query_id, begin_cell().store_uint(index, 256).store_slice(collection_address), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         return ();
     }
 
@@ -216,7 +216,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         throw_unless(err::already_has_stakes, cell_null?(last_bid));
         cell new_state = pack_item_state(owner_address, content, null(), royalty_params);
         if (query_id) {
-            send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), 64); ;; carry all the remaining value of the inbound message
+            send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         }
         return save_item_data(config, new_state);
     }
@@ -231,7 +231,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     }
 
     if (op == 0) {
-        int is_topup = equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0);
+        int is_topup = equal_slices(in_msg_body, comm::topup) & (in_msg_body.slice_refs() == 0);
         throw_unless(err::forbidden_topup, is_topup | equal_slices(sender_address, owner_address)); ;; only owner can fill-up balance, prevent coins lost right after the auction
         ;; if owner send bid right after auction he can restore it by transfer response message
         ;; 
@@ -260,7 +260,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         throw_if(err::invalid_auction_config, cell_null?(new_auction));
         cell new_state = pack_item_state(owner_address, content, new_auction, royalty_params);
         if (query_id) {
-            send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), 64); ;; carry all the remaining value of the inbound message
+            send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         }
         return save_item_data(config, new_state);
     }
@@ -278,7 +278,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         cell new_dns = change_dns_record(dns, in_msg_body);
         cell new_content = pack_item_content(nft_content, new_dns, token_info);
         cell new_state = pack_item_state(owner_address, new_content, auction, royalty_params);
-        send_msg(sender_address, 0, op::teleitem_ok, cur_lt(), null(), 64); ;; carry all the remaining value of the inbound message
+        send_msg(sender_address, 0, op::teleitem_ok, cur_lt(), null(), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         return save_item_data(config, new_state);
     }
     throw(err::unknown_op);
@@ -384,13 +384,13 @@ slice get_username() method_id {
     (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
 
     int subdomain_bits = slice_bits(subdomain);
-    throw_unless(70, mod(subdomain_bits, 8) == 0);
+    throw_unless(err::invalid_string_length, mod(subdomain_bits, 8) == 0);
 
     int starts_with_zero_byte = subdomain.preload_int(8) == 0;
-    throw_unless(413, starts_with_zero_byte);
+    throw_unless(err::doesnt_start_with_zero_byte, starts_with_zero_byte);
 
     if (subdomain_bits > 8) { ;; more than "." requested
-        category = "dns_next_resolver"H;
+        category = cat::dns_next_resolver;
     }
 
     if (category == 0) { ;;  all categories are requested

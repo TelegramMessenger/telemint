@@ -24,7 +24,7 @@
     cell token_info = pack_token_info(token_name, full_domain);
     cell deploy_msg = pack_teleitem_msg_deploy(sender_address, bid, token_info, content, auction_config, royalty);
     cell msg = pack_init_int_message(item_address, state_init, deploy_msg);
-    send_raw_message(msg, 64); ;; carry all the remaining value of the inbound message, fee deducted from amount
+    send_raw_message(msg, mf::add_inbound_value); ;; carry all the remaining value of the inbound message, fee deducted from amount
 }
 
 () recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
@@ -41,7 +41,7 @@
     if (op == 0) { ;; regular money transfer
         ;; NB: it is not possible to recover any money transferred to this account
         ;; so we return back all transfers except ones with comment #topup in it
-        throw_unless(err::wrong_topup_comment, equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0));
+        throw_unless(err::wrong_topup_comment, equal_slices(in_msg_body, comm::topup) & (in_msg_body.slice_refs() == 0));
 
         return ();
     }
@@ -87,7 +87,7 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
 }
 
 (int, cell) dnsresolve(slice subdomain, int category) method_id {
-    throw_unless(70, mod(slice_bits(subdomain), 8) == 0);
+    throw_unless(err::invalid_string_length, mod(slice_bits(subdomain), 8) == 0);
 
     int starts_with_zero_byte = subdomain.preload_int(8) == 0;
 

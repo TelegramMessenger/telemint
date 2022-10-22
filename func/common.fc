@@ -4,7 +4,7 @@ const int dns_next_resolver_prefix = 0xba93; ;; dns_next_resolver prefix - https
 const int op::fill_up = 0x370fec51;
 const int op::outbid_notification = 0x557cea20;
 const int op::change_dns_record = 0x4eb1f0f9;
-const int op::dns_balance_release = 0x4ed14b65;
+const int op::dns_balance_release = 0x4ed14b65; ;; CONSTANT NOT USED
 
 const int op::telemint_msg_deploy = 0x4637289a;
 const int op::teleitem_msg_deploy = 0x299a3e15;
@@ -16,9 +16,9 @@ const int op::teleitem_ok = 0xa37a0983;
 
 const int op::nft_cmd_transfer = 0x5fcc3d14;
 const int op::nft_cmd_get_static_data = 0x2fcb26a2;
-const int op::nft_cmd_edit_content = 0x1a0b9d51;
-const int op::nft_answer_ownership_assigned = 0x05138d91;
-const int op::nft_answer_excesses = 0xd53276db;
+const int op::nft_cmd_edit_content = 0x1a0b9d51;          ;; CONSTANT NOT USED
+const int op::nft_answer_ownership_assigned = 0x05138d91; ;; CONSTANT NOT USED
+const int op::nft_answer_excesses = 0xd53276db;           ;; CONSTANT NOT USED
 
 const int op::ownership_assigned = 0x05138d91;
 const int op::excesses = 0xd53276db;
@@ -26,6 +26,8 @@ const int op::get_static_data = 0x2fcb26a2;
 const int op::report_static_data = 0x8b771735;
 const int op::get_royalty_params = 0x693d3950;
 const int op::report_royalty_params = 0xa8cb00ad;
+
+const int err::invalid_string_length = 70;
 
 const int err::invalid_length = 201;
 const int err::invalid_signature = 202;
@@ -50,6 +52,23 @@ const int err::already_has_stakes = 221;
 const int err::auction_already_started = 222;
 const int err::invalid_auction_config = 223;
 
+const int err::invalid_workchain = 333;
+const int err::doesnt_start_with_zero_byte = 413;
+
+const slice comm::topup = "#topup";
+
+const slice cat::dns_next_resolver = "dns_next_resolver"H;
+
+;; MF category: Message Flags
+const int mf::paying_fees = 1;
+const int mf::ignore_errors = 2;
+;; const int mf::self_destruct = 32;
+const int mf::add_inbound_value = 64;
+;; const int mf::add_remaining_balance = 128;
+
+;; Warning: some constants exist here (and even in TLB) and are not used in code!
+;; This may be a dire mistake or yet missing logic that is to be implemented.
+
 int mod(int x, int y) asm "MOD";
 int equal_slices(slice a, slice b) asm "SDEQ";
 int builder_null?(builder b) asm "ISNULL";
@@ -59,7 +78,7 @@ int workchain() asm "0 PUSHINT";
 
 () force_chain(slice addr) impure inline {
     (int wc, _) = parse_std_addr(addr);
-    throw_unless(333, wc == workchain());
+    throw_unless(err::invalid_workchain, wc == workchain());
 }
 
 slice zero_address() inline {
@@ -77,7 +96,7 @@ int get_top_domain_bits(slice domain) inline {
             i += 8;
         }
     } until (need_break);
-    throw_if(201, i == 0); ;; starts with \0
+    throw_if(err::invalid_length, i == 0); ;; starts with \0
     return i;
 }
 
