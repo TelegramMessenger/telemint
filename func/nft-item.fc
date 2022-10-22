@@ -299,6 +299,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
 ;;  GET Methods
 ;;
 
+;; -> (<int1> has_state, <uint256> item_index, <addr> collection_address, <addr> owner_address, <cell> nft_content)
 (int, int, slice, slice, cell) get_nft_data() method_id {
     (cell config, cell state) = unpack_item_data();
     (int item_index, slice collection_address) = unpack_item_config(config);
@@ -310,6 +311,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     return (-1, item_index, collection_address, owner_address, nft_content);
 }
 
+;; -> (<addr> bidder_address, <grams> bid, <uint32> end_time)
 (slice, int, int) get_auction_info() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -320,12 +322,16 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
     slice bidder_address = null();
     int bid = 0;
-    if (cell_null?(last_bid)) {
+    if (~ cell_null?(last_bid)) {
+        ;; It seems that the condition had logic error, tried to unpack last bid only if it is null.
+        ;; Strange enough, in get_telemint_auction_state the logic is correct.
         (bidder_address, bid, _) = unpack_last_bid(last_bid);
     }
     return (bidder_address, bid, end_time);
 }
 
+;; -> (<string> full_domain) = domain + token_name + \0
+;; NB: Shouldn't there be \0 between domain and token_name? Or is it guaranteed that domain has \0 at end? Or is it not needed?
 slice get_full_domain() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -334,6 +340,7 @@ slice get_full_domain() method_id {
     return begin_cell().store_slice(domain).store_slice(token_name).store_int(0, 8).end_cell().begin_parse();
 }
 
+;; -> (<string> token_name)
 slice get_telemint_token_name() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -342,10 +349,12 @@ slice get_telemint_token_name() method_id {
     return token_name;
 }
 
+;; -> (<string> token_name)
 slice get_username() method_id {
     return get_telemint_token_name();
 }
 
+;; -> (<addr> bidder_address, <grams> bid, <uint32> bid_ts, <grams> min_bid, <uint32> end_time)
 (slice, int, int, int, int) get_telemint_auction_state() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -359,7 +368,8 @@ slice get_username() method_id {
     return (bidder_address, bid, bid_ts, min_bid, end_time);
 }
 
-
+;; -> (<addr> beneficiary_address, <grams> initial_min_bid, <grams> max_bid, 
+;;     <uint8> min_bid_step, <uint32> min_extend_time, <uint32> duration)
 (slice, int, int, int, int, int) get_telemint_auction_config() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -373,6 +383,7 @@ slice get_username() method_id {
     return (beneficiary_address, initial_min_bid, max_bid, min_bid_step, min_extend_time, duration);
 }
 
+;; -> (<uint16> numerator, <uint16> denumerator, <addr> destination)
 (int, int, slice) royalty_params() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -380,6 +391,7 @@ slice get_username() method_id {
     return (numerator, denomenator, destination);
 }
 
+;; (<string> subdomain, <uint256> category) -> (<int> prefix_len, <cell> result)
 (int, cell) dnsresolve(slice subdomain, int category) method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);

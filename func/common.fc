@@ -436,7 +436,7 @@ cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
             .end_cell();
 }
 
-;; <cell> -> (<addr> beneficiary_address, <grams> initial_min_bod, <grams> max_bid, 
+;; <cell> -> (<addr> beneficiary_address, <grams> initial_min_bid, <grams> max_bid, 
 ;;            <uint8> min_bid_step, <uint32> min_extend_time, <uint32> duration)
 (slice, int, int, int, int, int) unpack_auction_config(cell c) inline {
     slice cs = c.begin_parse();
