@@ -7,7 +7,6 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id) {
     throw_unless(err::not_yet_valid_signature, valid_since < ts);
     throw_unless(err::expired_signature, ts < valid_till);
     return cmd;
-
 }
 
 () deploy_item(slice sender_address, int bid, cell item_code, slice cmd, slice full_domain, cell default_royalty_params) impure {
@@ -34,17 +33,17 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id) {
     if (flags & 1) { ;; ignore all bounced messages
         return ();
     }
-    slice sender_address = cs~load_msg_addr();
 
+    slice sender_address = cs~load_msg_addr();
     int op = in_msg_body~load_uint(32);
 
     if (op == 0) { ;; regular money transfer
         ;; NB: it is not possible to recover any money transferred to this account
         ;; so we return back all transfers except ones with comment #topup in it
         throw_unless(err::wrong_topup_comment, equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0));
-
         return ();
     }
+
     throw_unless(err::unknown_op, op == op::telemint_msg_deploy);
 
     var (_, subwallet_id, public_key, _, item_code, full_domain, default_royalty_params) = unpack_collection_data();
@@ -76,6 +75,7 @@ slice get_nft_address_by_index(int index) method_id {
     cell state_init = pack_item_state_init(index, item_code);
     return calculate_address(workchain(), state_init);
 }
+
 (int, int, slice) royalty_params() method_id {
     var (_, _, _, _, _, _, royalty_params) = unpack_collection_data();
     (int numerator, int denomenator, slice destination) = unpack_nft_royalty_params(royalty_params);
@@ -90,10 +90,10 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
     throw_unless(err::invalid_subdomain_slice_size, mod(slice_bits(subdomain), 8) == 0);
 
     int starts_with_zero_byte = subdomain.preload_int(8) == 0;
-
     if (starts_with_zero_byte & (slice_bits(subdomain) == 8)) { ;; "." requested
         return (8, null()); ;; resolved but no dns-records
     }
+
     int skipped_bits = 0;
     if (starts_with_zero_byte) {
         subdomain~load_uint(8);

@@ -75,7 +75,7 @@ int get_top_domain_bits(slice domain) inline {
     int i = 0;
     int need_break = 0;
     do {
-        int char = domain~load_uint(8); ;; we do not check domain.length because it MUST contains \0 character
+        int char = domain~load_uint(8); ;; we do not check domain.length because it MUST contain \0 character
         need_break = char == 0;
         if (~ need_break) {
             i += 8;
@@ -90,6 +90,7 @@ _ load_text(slice cs) inline_ref {
     slice text = cs~load_bits(len * 8);
     return (cs, text);
 }
+
 _ load_text_ref(slice cs) inline {
     slice text_cs = cs~load_ref().begin_parse();
     slice text = text_cs~load_text();
@@ -348,6 +349,7 @@ _ unpack_deploy_msg(slice cs) inline {
     cs.end_parse();
     return res;
 }
+
 cell pack_last_bid(slice bidder_address, int bid, int bid_ts) inline_ref {
     return begin_cell()
             .store_slice(bidder_address)
@@ -367,6 +369,7 @@ cell pack_last_bid(slice bidder_address, int bid, int bid_ts) inline_ref {
     cs.end_parse();
     return res;
 }
+
 cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline_ref {
     return begin_cell()
             .store_maybe_ref(last_bid)
