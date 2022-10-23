@@ -59,7 +59,7 @@ cell process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell au
         new_end_time = 0;
     }
     ;; step is at least GR$1
-    int new_min_bid = max(new_bid + 1000000000, (new_bid * (100 + min_bid_step) + 99) / 100);
+    int new_min_bid = max(new_bid + one_ton, (new_bid * (100 + min_bid_step) + 99) / 100);
     if (~ cell_null?(old_last_bid)) {
         (slice old_bidder_address, int old_bid, _) = unpack_last_bid(old_last_bid);
         int to_send = min(my_balance - min_tons_for_storage(), old_bid);
