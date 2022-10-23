@@ -46,7 +46,7 @@ The owner of an NftItem may start a new auction.
 // Start new auction. Accepted only from the owner.
 teleitem_msg_start_auction#487a8e81 query_id:int64 auction_config:^TeleitemAuctionConfig = TeleitemMsg;
 
-// Cancel auction auction. Accepted only from the owner. Forbidden if there are some active bids
+// Cancel auction. Accepted only from the owner. Forbidden if there are some active bids
 teleitem_msg_cancel_auction#371638ae query_id:int64 = TeleitemMsg;
 ```
 
