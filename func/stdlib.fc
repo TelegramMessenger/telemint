@@ -1,5 +1,4 @@
 ;; Standard library for funC
-;;
 
 forall X -> tuple cons(X head, tuple tail) asm "CONS";
 forall X -> (X, tuple) uncons(tuple list) asm "UNCONS";
