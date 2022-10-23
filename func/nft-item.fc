@@ -156,6 +156,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     cs~load_grams(); ;; skip value
     cs~skip_bits(1); ;; skip extracurrency collection
     cs~load_grams(); ;; skip ihr_fee
+    int fwd_fee = cs~load_grams(); ;; we use message fwd_fee for estimation of forward_payload costs
 
     int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
 
@@ -242,7 +243,6 @@ cell change_dns_record(cell dns, slice in_msg_body) {
 
     if (op == op::nft_cmd_transfer) {
         throw_unless(err::forbidden_transfer, equal_slices(sender_address, owner_address));
-        int fwd_fee = cs~load_grams(); ;; we use message fwd_fee for estimation of forward_payload costs
         slice new_owner_address = transfer_ownership(my_balance, owner_address, in_msg_body, fwd_fee);
         cell new_state = pack_item_state(new_owner_address, content, auction, royalty_params);
         return save_item_data(config, new_state);
