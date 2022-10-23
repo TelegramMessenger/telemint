@@ -51,7 +51,7 @@ int send_money(int my_balance, slice address, int value) impure {
 cell process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell auction) impure {
     (cell auction_state, cell auction_config) = unpack_auction(auction);
     (cell old_last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
-    throw_if(err::too_small_stake, new_bid < min_bid);
+    throw_unless(err::too_small_stake, new_bid >= min_bid);
     (slice beneficiary_address, int initial_min_bid, int max_bid, int min_bid_step, int min_extend_time, _) = unpack_auction_config(auction_config);
     cell new_last_bid = pack_last_bid(new_bid_address, new_bid, now());
     int new_end_time = max(end_time, now() + min_extend_time);
