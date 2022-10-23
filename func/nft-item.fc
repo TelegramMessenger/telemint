@@ -196,10 +196,10 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     if (op == op::teleitem_cancel_auction) {
         throw_if(err::no_auction, cell_null?(auction));
         throw_unless(err::forbidden_auction, equal_slices(sender_address, owner_address));
-        int query_id = in_msg_body~load_uint(64);
         (cell auction_state, cell auction_config) = unpack_auction(auction);
         (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
         throw_unless(err::already_has_stakes, cell_null?(last_bid));
+        int query_id = in_msg_body~load_uint(64);
         cell new_state = pack_item_state(owner_address, content, null(), royalty_params);
         if (query_id) {
             send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), 64); ;; carry all the remaining value of the inbound message
