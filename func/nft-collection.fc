@@ -12,8 +12,11 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id) {
 
 () deploy_item(slice sender_address, int bid, cell item_code, slice cmd, slice full_domain, cell default_royalty_params) impure {
     var (token_name, content, auction_config, royalty) = unpack_deploy_msg(cmd);
+    throw_unless(err::invalid_token_name_size, mod(slice_bits(token_name), 8) == 0); ;; since string_hash throws if the slice length is not divisible by eight
+
     (slice beneficiary_address, int initial_min_bid, int max_bid, int min_bid_step, int min_extend_time, _) = unpack_auction_config(auction_config);
     throw_if(err::not_enough_funds, bid < initial_min_bid);
+
     int item_index = string_hash(token_name);
     cell state_init = pack_item_state_init(item_index, item_code);
     slice item_address = calculate_address(workchain(), state_init);

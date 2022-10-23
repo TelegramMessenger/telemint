@@ -50,6 +50,7 @@ const int err::forbidden_auction = 220;
 const int err::already_has_stakes = 221;
 const int err::auction_already_started = 222;
 const int err::invalid_auction_config = 223;
+const int err::invalid_token_name_size = 224;
 const int err::forbidden_chain = 333;
 const int err:invalid_subdomain_starting_byte = 413;
 
