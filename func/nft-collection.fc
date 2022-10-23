@@ -17,9 +17,7 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id) {
     int item_index = string_hash(token_name);
     cell state_init = pack_item_state_init(item_index, item_code);
     slice item_address = calculate_address(workchain(), state_init);
-    if (null?(royalty)) {
-        royalty = default_royalty_params;
-    }
+    royalty = null?(royalty) ? default_royalty_params : royalty;
     cell token_info = pack_token_info(token_name, full_domain);
     cell deploy_msg = pack_teleitem_msg_deploy(sender_address, bid, token_info, content, auction_config, royalty);
     cell msg = pack_init_int_message(item_address, state_init, deploy_msg);
