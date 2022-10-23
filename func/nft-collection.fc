@@ -13,7 +13,7 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id) {
     var (token_name, content, auction_config, royalty) = unpack_deploy_msg(cmd);
     throw_unless(err::invalid_token_name_size, mod(slice_bits(token_name), 8) == 0); ;; since string_hash throws if the slice length is not divisible by eight
 
-    (slice beneficiary_address, int initial_min_bid, int max_bid, int min_bid_step, int min_extend_time, _) = unpack_auction_config(auction_config);
+    (_, int initial_min_bid, _, _, _, _) = unpack_auction_config(auction_config);
     throw_unless(err::not_enough_funds, bid >= initial_min_bid);
 
     int item_index = string_hash(token_name);

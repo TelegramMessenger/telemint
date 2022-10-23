@@ -11,7 +11,7 @@ int send_money(int my_balance, slice address, int value) impure {
 
 (int, slice, cell) maybe_end_auction(int my_balance, slice owner, cell auction, cell royalty_params, int is_external) impure {
     (cell auction_state, cell auction_config) = unpack_auction(auction);
-    (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
+    (cell last_bid, _, int end_time) = unpack_auction_state(auction_state);
     if (now() < end_time) {
         return (my_balance, owner, auction);
     }
@@ -99,7 +99,7 @@ cell deploy_item(int my_balance, slice msg) {
 }
 
 slice transfer_ownership(int my_balance, slice owner_address, slice in_msg_body, int fwd_fees) impure inline {
-    (int query_id, slice new_owner_address, slice response_destination, cell custom_payload, int forward_amount, slice forward_payload)
+    (int query_id, slice new_owner_address, slice response_destination, _, int forward_amount, slice forward_payload)
             = unpack_nft_cmd_transfer(in_msg_body);
 
     force_chain(new_owner_address);
@@ -201,8 +201,8 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     if (op == op::teleitem_cancel_auction) {
         throw_if(err::no_auction, cell_null?(auction));
         throw_unless(err::forbidden_auction, equal_slices(sender_address, owner_address));
-        (cell auction_state, cell auction_config) = unpack_auction(auction);
-        (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
+        (cell auction_state, _) = unpack_auction(auction);
+        (cell last_bid, _, _) = unpack_auction_state(auction_state);
         throw_unless(err::already_has_stakes, cell_null?(last_bid));
         int query_id = in_msg_body~load_uint(64);
         cell new_state = pack_item_state(owner_address, content, null(), royalty_params);
@@ -281,20 +281,20 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         return (0, item_index, collection_address, zero_address(), null());
     }
 
-    (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
+    (slice owner_address, cell content, _, _) = unpack_item_state(state);
     (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
     return (-1, item_index, collection_address, owner_address, nft_content);
 }
 
 (slice, int, int) get_auction_info() method_id {
-    (cell config, cell state) = unpack_item_data();
-    (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
+    (_, cell state) = unpack_item_data();
+    (_, _, cell auction, _) = unpack_item_state(state);
     if (cell_null?(auction)) {
         return (null(), 0, 0);
     }
 
-    (cell auction_state, cell auction_config) = unpack_auction(auction);
-    (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
+    (cell auction_state, _) = unpack_auction(auction);
+    (cell last_bid, _, int end_time) = unpack_auction_state(auction_state);
     slice bidder_address = null();
     int bid = 0;
     if (~ cell_null?(last_bid)) {
@@ -304,18 +304,18 @@ cell change_dns_record(cell dns, slice in_msg_body) {
 }
 
 slice get_full_domain() method_id {
-    (cell config, cell state) = unpack_item_data();
-    (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
-    (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
+    (_, cell state) = unpack_item_data();
+    (_, cell content, _, _) = unpack_item_state(state);
+    (_, _, cell token_info) = unpack_item_content(content);
     (slice token_name, slice domain) = unpack_token_info(token_info);
     return begin_cell().store_slice(domain).store_slice(token_name).store_int(0, 8).end_cell().begin_parse();
 }
 
 slice get_telemint_token_name() method_id {
-    (cell config, cell state) = unpack_item_data();
-    (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
-    (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
-    (slice token_name, slice domain) = unpack_token_info(token_info);
+    (_, cell state) = unpack_item_data();
+    (_, cell content, _, _) = unpack_item_state(state);
+    (_, _, cell token_info) = unpack_item_content(content);
+    (slice token_name, _) = unpack_token_info(token_info);
     return token_name;
 }
 
@@ -324,10 +324,10 @@ slice get_username() method_id {
 }
 
 (slice, int, int, int, int) get_telemint_auction_state() method_id {
-    (cell config, cell state) = unpack_item_data();
-    (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
-    throw_if (err::no_auction, cell_null?(auction));
-    (cell auction_state, cell auction_config) = unpack_auction(auction);
+    (_, cell state) = unpack_item_data();
+    (_, _, cell auction, _) = unpack_item_state(state);
+    throw_if(err::no_auction, cell_null?(auction));
+    (cell auction_state, _) = unpack_auction(auction);
     (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
     (slice bidder_address, int bid, int bid_ts) = (null(), 0, 0);
     if (~ cell_null?(last_bid)) {
@@ -339,29 +339,29 @@ slice get_username() method_id {
 
 
 (slice, int, int, int, int, int) get_telemint_auction_config() method_id {
-    (cell config, cell state) = unpack_item_data();
-    (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
+    (_, cell state) = unpack_item_data();
+    (_, _, cell auction, _) = unpack_item_state(state);
     if (cell_null?(auction)) {
         ;; Do not throw error, so it is easy to check if get_telemint_auction_config method exists
         return (null(), 0, 0, 0, 0, 0);
     }
-    (cell auction_state, cell auction_config) = unpack_auction(auction);
+    (_, cell auction_config) = unpack_auction(auction);
     (slice beneficiary_address, int initial_min_bid, int max_bid, int min_bid_step, int min_extend_time, int duration) =
             unpack_auction_config(auction_config);
     return (beneficiary_address, initial_min_bid, max_bid, min_bid_step, min_extend_time, duration);
 }
 
 (int, int, slice) royalty_params() method_id {
-    (cell config, cell state) = unpack_item_data();
-    (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
+    (_, cell state) = unpack_item_data();
+    (_, _, _, cell royalty_params) = unpack_item_state(state);
     (int numerator, int denomenator, slice destination) = unpack_nft_royalty_params(royalty_params);
     return (numerator, denomenator, destination);
 }
 
 (int, cell) dnsresolve(slice subdomain, int category) method_id {
-    (cell config, cell state) = unpack_item_data();
-    (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
-    (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
+    (_, cell state) = unpack_item_data();
+    (_, cell content, _, _) = unpack_item_state(state);
+    (_, cell dns, _) = unpack_item_content(content);
 
     int subdomain_bits = slice_bits(subdomain);
     throw_unless(err::invalid_subdomain_slice_size, mod(subdomain_bits, 8) == 0);
