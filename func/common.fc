@@ -287,7 +287,7 @@ cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell con
     var cs = get_data().begin_parse();
     var res = (
             cs~load_int(1), ;; touched
-            cs~load_uint(32), ;; subwallet_id
+            cs~load_uint(64), ;; subwallet_id
             cs~load_uint(256), ;; owner_key
             cs~load_ref(), ;; content
             cs~load_ref(), ;; item_code
@@ -301,7 +301,7 @@ cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell con
 _ save_collection_data(int touched, int subwallet_id, int owner_key, cell content, cell item_code, slice full_domain, cell royalty_params) impure inline {
     cell data = begin_cell()
             .store_int(touched, 1)
-            .store_uint(subwallet_id, 32)
+            .store_uint(subwallet_id, 64)
             .store_uint(owner_key, 256)
             .store_ref(content)
             .store_ref(item_code)
@@ -315,7 +315,7 @@ _ unpack_signed_cmd(slice cs) inline {
     return (
             cs~load_bits(512), ;; signature
             slice_hash(cs), ;; hash
-            cs~load_int(32), ;; subwallet_id
+            cs~load_int(64), ;; subwallet_id
             cs~load_uint(32), ;; valid_since
             cs~load_uint(32), ;; valid_till
             cs ;; cmd
