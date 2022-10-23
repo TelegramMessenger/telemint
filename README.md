@@ -18,7 +18,7 @@ One may also look at the [tlb decription](telemint.tlb) of internal messages and
 The first bidder receives a signed query from the server and sends it to NftCollection with the first bid attached.
 ```
 // Create an NftItem and start an auction. Signed by auction's private key. Acts as a first bid in the auction.
-telemint_unsigned_deploy$_ subwallet_id:uint32 valid_since:uint32 valid_till:uint32 token_name:TelemintText
+telemint_unsigned_deploy$_ subwallet_id:uint64 valid_since:uint32 valid_till:uint32 token_name:TelemintText
   content:^Cell auction_config:^TeleitemAuctionConfig royalty_params:(Maybe ^NftRoyaltyParams) = TelemintUnsignedDeploy;
 telemint_msg_deploy#4637289a  sig:bits512 msg:TelemintUnsignedDeploy = TelemintMsg;
 ```
