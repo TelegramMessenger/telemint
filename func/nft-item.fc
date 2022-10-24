@@ -208,21 +208,6 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         return save_item_data(config, new_state);
     }
 
-    if (~ cell_null?(auction)) {
-        throw_unless(err::forbidden_not_stake, op == 0);
-        auction = process_new_bid(my_balance, sender_address, msg_value, auction);
-        (my_balance, owner_address, auction) = maybe_end_auction(my_balance, owner_address, auction, royalty_params, 0);
-        cell new_state = pack_item_state(owner_address, content, auction, royalty_params);
-        return save_item_data(config, new_state);
-    }
-
-    if (op == 0) {
-        int is_topup = equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0);
-        throw_unless(err::forbidden_topup, is_topup | equal_slices(sender_address, owner_address)); ;; only owner can fill-up balance, prevent coins lost right after the auction
-        ;; if owner send bid right after auction he can restore it by transfer response message
-        return ();
-    }
-
     if (op == op::teleitem_start_auction) {
         throw_unless(err::auction_already_started, cell_null?(auction));
         throw_unless(err::forbidden_auction, equal_slices(sender_address, owner_address));
@@ -253,6 +238,22 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         send_msg(sender_address, 0, op::teleitem_ok, cur_lt(), null(), 64); ;; carry all the remaining value of the inbound message
         return save_item_data(config, new_state);
     }
+
+    if (op == 0 & ~in_msg_body.slice_empty?()) {
+        int is_topup = equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0);
+        throw_unless(err::forbidden_topup, is_topup | equal_slices(sender_address, owner_address)); ;; only owner can fill-up balance, prevent coins lost right after the auction
+        ;; if owner send bid right after auction he can restore it by transfer response message
+        return ();
+    }
+
+    if (~ cell_null?(auction)) {
+        throw_unless(err::forbidden_not_stake, op == 0);
+        auction = process_new_bid(my_balance, sender_address, msg_value, auction);
+        (my_balance, owner_address, auction) = maybe_end_auction(my_balance, owner_address, auction, royalty_params, 0);
+        cell new_state = pack_item_state(owner_address, content, auction, royalty_params);
+        return save_item_data(config, new_state);
+    }
+
     throw(err::unknown_op);
 }
 
