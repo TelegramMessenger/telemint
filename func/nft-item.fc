@@ -342,7 +342,7 @@ slice get_username() method_id {
     return (beneficiary_address, initial_min_bid, max_bid, min_bid_step, min_extend_time, duration);
 }
 
-(int, int, slice) royalty_params() method_id {
+(int, int, slice) get_royalty_params() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
     (int numerator, int denomenator, slice destination) = unpack_nft_royalty_params(royalty_params);
