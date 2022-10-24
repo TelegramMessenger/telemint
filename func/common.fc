@@ -22,7 +22,7 @@ const int op::nft_answer_excesses = 0xd53276db;
 
 const int op::ownership_assigned = 0x05138d91;
 const int op::excesses = 0xd53276db;
-const int op::get_static_data = 0x2fcb26a2;
+const int op::get_static_data = 0x2fcb2642;
 const int op::report_static_data = 0x8b771735;
 const int op::get_royalty_params = 0x693d3950;
 const int op::report_royalty_params = 0xa8cb00ad;
