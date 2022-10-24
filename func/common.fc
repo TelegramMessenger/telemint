@@ -57,7 +57,7 @@ const int err::doesnt_start_with_zero_byte = 413;
 
 const slice comm::topup = "#topup";
 
-const slice cat::dns_next_resolver = "dns_next_resolver"H;
+const int cat::dns_next_resolver = "dns_next_resolver"H;
 
 ;; MF category: Message Flags
 const int mf::paying_fees = 1;
