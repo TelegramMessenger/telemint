@@ -77,7 +77,7 @@ int get_top_domain_bits(slice domain) inline {
             i += 8;
         }
     } until (need_break);
-    throw_if(201, i == 0); ;; starts with \0
+    throw_if(err::invalid_length, i == 0); ;; starts with \0
     return i;
 }
 
