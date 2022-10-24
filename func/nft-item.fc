@@ -161,6 +161,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     (int index, slice collection_address) = unpack_item_config(config);
 
     if (equal_slices(collection_address, sender_address)) {
+        throw_unless(err::invalid_message, in_msg_body.slice_empty?());
         throw_unless(err::forbidden_not_deploy, op == op::teleitem_msg_deploy);
         if (cell_null?(state)) {
             cell new_state = deploy_item(my_balance, in_msg_body);

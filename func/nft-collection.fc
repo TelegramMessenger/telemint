@@ -6,6 +6,7 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_
     int ts = now();
     throw_unless(err::not_yet_valid_signature, valid_since < ts);
     throw_unless(err::expired_signature, ts < valid_till);
+    throw_if(err::invalid_message, cmd.slice_empty?());
     return cmd;
 
 }
@@ -35,7 +36,7 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_
     }
     slice sender_address = cs~load_msg_addr();
 
-    int op = in_msg_body~load_uint(32);
+    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
 
     if (op == 0) { ;; regular money transfer
         ;; NB: it is not possible to recover any money transferred to this account
