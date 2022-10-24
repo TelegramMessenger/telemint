@@ -27,6 +27,7 @@ const int op::report_static_data = 0x8b771735;
 const int op::get_royalty_params = 0x693d3950;
 const int op::report_royalty_params = 0xa8cb00ad;
 
+const int err::invalid_subdomain_bits = 70;
 const int err::invalid_length = 201;
 const int err::invalid_signature = 202;
 const int err::wrong_subwallet_id = 203;
@@ -50,6 +51,7 @@ const int err::already_has_stakes = 221;
 const int err::auction_already_started = 222;
 const int err::invalid_auction_config = 223;
 const int err::invalid_0_workchain = 333;
+const int err::invalid_starts_with_zero_byte = 413;
 
 int mod(int x, int y) asm "MOD";
 int equal_slices(slice a, slice b) asm "SDEQ";
