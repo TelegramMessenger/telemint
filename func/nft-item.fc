@@ -1,3 +1,8 @@
+#pragma version >=0.2.0;
+
+#include "op-codes.fc";
+#include "params.fc";
+
 int min_tons_for_storage() asm "1000000000 PUSHINT"; ;; 1 TON
 
 int send_money(int my_balance, slice address, int value) impure {
