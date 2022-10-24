@@ -1,3 +1,8 @@
+#pragma version >=0.2.0;
+
+#include "op-codes.fc";
+#include "params.fc";
+
 ;; Standard library for funC
 ;;
 
