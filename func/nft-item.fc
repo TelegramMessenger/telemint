@@ -289,7 +289,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
     slice bidder_address = null();
     int bid = 0;
-    if (cell_null?(last_bid)) {
+    if (~cell_null?(last_bid)) {
         (bidder_address, bid, _) = unpack_last_bid(last_bid);
     }
     return (bidder_address, bid, end_time);
