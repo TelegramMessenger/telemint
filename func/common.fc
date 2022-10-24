@@ -132,7 +132,7 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
     return begin_cell()
             .store_uint(0x18, 6) ;; 011000 tag=0, ihr_disabled=1, allow_bounces=1, bounced=1, add_none
             .store_slice(dest)
-            .store_grams(0) ;; grams
+            .store_grams(0)
             .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
             .store_ref(state_init)
             .store_ref(body)
