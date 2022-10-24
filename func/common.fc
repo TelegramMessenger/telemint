@@ -49,6 +49,7 @@ const int err::forbidden_auction = 220;
 const int err::already_has_stakes = 221;
 const int err::auction_already_started = 222;
 const int err::invalid_auction_config = 223;
+const int err::invalid_0_workchain = 333;
 
 int mod(int x, int y) asm "MOD";
 int equal_slices(slice a, slice b) asm "SDEQ";
@@ -59,7 +60,7 @@ int workchain() asm "0 PUSHINT";
 
 () force_chain(slice addr) impure inline {
     (int wc, _) = parse_std_addr(addr);
-    throw_unless(333, wc == workchain());
+    throw_unless(err::invalid_0_workchain, wc == workchain());
 }
 
 slice zero_address() inline {
