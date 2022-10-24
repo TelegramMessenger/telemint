@@ -1,3 +1,8 @@
+#pragma version >=0.2.0;
+
+#include "op-codes.fc";
+#include "params.fc";
+
 const int one_ton = 1000000000;
 const int dns_next_resolver_prefix = 0xba93; ;; dns_next_resolver prefix - https://github.com/ton-blockchain/ton/blob/7e3df93ca2ab336716a230fceb1726d81bac0a06/crypto/block/block.tlb#L819
 
