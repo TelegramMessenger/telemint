@@ -39,8 +39,8 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_
 
     if (op == 0) { ;; regular money transfer
         ;; NB: it is not possible to recover any money transferred to this account
-        ;; so we return back all transfers except ones with comment #topup in it
-        throw_unless(err::wrong_topup_comment, equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0));
+        ;; so we return back all transfers except ones with comment starting #topup in it
+        throw_unless(err::wrong_topup_comment, is_prefix_of("#topup", in_msg_body) & (in_msg_body.slice_refs() == 0));
 
         return ();
     }
