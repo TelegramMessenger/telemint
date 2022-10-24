@@ -264,9 +264,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     return save_item_data(config, new_state);
 }
 
-;;
 ;;  GET Methods
-;;
 
 (int, int, slice, slice, cell) get_nft_data() method_id {
     (cell config, cell state) = unpack_item_data();
