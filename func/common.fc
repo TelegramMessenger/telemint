@@ -91,9 +91,9 @@ _ load_text_ref(slice cs) inline {
 }
 
 builder store_text(builder b, slice text) inline {
-    int len = slice_bits(text);
-    throw_unless(err::invalid_length, mod(len, 8) == 0);
-    return b.store_uint(slice_bits(text) / 8, 8)
+    (int len, int rem) = slice_bits(text) /% 8;
+    throw_if(err::invalid_length, rem);
+    return b.store_uint(len, 8)
             .store_slice(text);
 }
 
