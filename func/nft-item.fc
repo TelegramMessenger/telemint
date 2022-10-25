@@ -247,11 +247,15 @@ cell change_dns_record(cell dns, slice in_msg_body) {
 
     if (op == op::change_dns_record) { ;; change dns record
         throw_unless(err::forbidden_change_dns, equal_slices(sender_address, owner_address));
-        (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
+        (cell nft_content, cell dns, cell token_info, int query_id) = unpack_item_content(content);
+
+        throw_unless(412, query_id == 0); ;; data onchain tag
+
         cell new_dns = change_dns_record(dns, in_msg_body);
         cell new_content = pack_item_content(nft_content, new_dns, token_info);
         cell new_state = pack_item_state(owner_address, new_content, auction, royalty_params);
-        send_msg(sender_address, 0, op::teleitem_ok, cur_lt(), null(), 64); ;; carry all the remaining value of the inbound message
+
+        send_msg(sender_address, 0, op::teleitem_ok, now(), null(), 64); ;; carry all the remaining value of the inbound message
         return save_item_data(config, new_state);
     }
     throw(err::unknown_op);

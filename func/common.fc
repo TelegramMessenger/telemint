@@ -223,7 +223,8 @@ cell pack_item_content(cell nft_content, cell dns, cell token_info) inline {
     var res = (
             cs~load_ref(),
             cs~load_dict(),
-            cs~load_ref()
+            cs~load_ref(),
+            cs~load_uint(8)
     );
     cs.end_parse();
     return res;
