@@ -278,7 +278,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     }
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
     (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
-    return (-1, item_index, collection_address, owner_address, nft_content);
+    return (cell_null?(auction), item_index, collection_address, owner_address, nft_content);
 }
 
 (slice, int, int) get_auction_info() method_id {
