@@ -218,7 +218,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     }
 
     if (op == 0) {
-        int is_topup = equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0);
+        int is_topup = is_prefix_of("#topup", in_msg_body) & (in_msg_body.slice_refs() == 0);
         throw_unless(err::forbidden_topup, is_topup | equal_slices(sender_address, owner_address)); ;; only owner can fill-up balance, prevent coins lost right after the auction
         ;; if owner send bid right after auction he can restore it by transfer response message
         return ();

@@ -52,6 +52,7 @@ const int err::invalid_auction_config = 223;
 
 int mod(int x, int y) asm "MOD";
 int equal_slices(slice a, slice b) asm "SDEQ";
+int is_prefix_of(slice a, slice b) asm "SDPFX";
 int builder_null?(builder b) asm "ISNULL";
 builder store_builder(builder to, builder from) asm "STBR";
 
