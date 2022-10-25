@@ -1,5 +1,5 @@
 # Telemint
-This is the smart contract that Telegram intends to use in order to put some of its best usernames up for auction. The blockchain network for this smart contract is The Open Network (https://ton.org).
+This is the smart contract that Telegram intends to use in order to put some of its best usernames up for auction. The blockchain network for this smart contract is The Open Network (<https://ton.org>).
 
 Anyone who finds serious security vulnerabilities in this smart contract prior to the auction launch will be rewarded.
 
