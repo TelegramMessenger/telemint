@@ -1,7 +1,10 @@
-int min_tons_for_storage() asm "1000000000 PUSHINT"; ;; 1 TON
+#include "stdlib.fc";
+#include "common.fc";
+
+const int min_tons_for_storage = 1 * tons;
 
 int send_money(int my_balance, slice address, int value) impure {
-    int amount_to_send = min(my_balance - min_tons_for_storage(), value);
+    int amount_to_send = min(my_balance - min_tons_for_storage, value);
     if (amount_to_send > 0) {
         send_msg(address, amount_to_send, op::fill_up, cur_lt(), null(), mf::ignore_errors);
         my_balance -= amount_to_send;
@@ -59,10 +62,10 @@ int send_money(int my_balance, slice address, int value) impure {
         new_end_time = 0;
     }
     ;; step is at least GR$1
-    int new_min_bid = max(new_bid + 1000000000, (new_bid * (100 + min_bid_step) + 99) / 100);
+    int new_min_bid = max(new_bid + 1 * tons, (new_bid * (100 + min_bid_step) + 99) / 100);
     if (~ cell_null?(old_last_bid)) {
         (slice old_bidder_address, int old_bid, _) = unpack_last_bid(old_last_bid);
-        int to_send = min(my_balance - min_tons_for_storage(), old_bid);
+        int to_send = min(my_balance - min_tons_for_storage, old_bid);
         if (to_send > 0) {
             send_msg(old_bidder_address, to_send, op::outbid_notification, cur_lt(), null(), mf::paying_fees);
             my_balance -= to_send;
@@ -74,8 +77,8 @@ int send_money(int my_balance, slice address, int value) impure {
 
 cell prepare_auction(cell auction_config) {
     (slice beneficiary_address, int initial_min_bid, int max_bid, int min_bid_step, int min_extend_time, int duration) = unpack_auction_config(auction_config);
-    if ((initial_min_bid < 2 * min_tons_for_storage()) | ((max_bid != 0) & (max_bid < initial_min_bid)) |
-            (min_bid_step <= 0) | (min_extend_time > 60 * 60 * 24 * 7) | (duration > 60 * 60 * 24 * 365)) {
+    if ((initial_min_bid < 2 * min_tons_for_storage) | ((max_bid != 0) & (max_bid < initial_min_bid)) |
+            (min_bid_step <= 0) | (min_extend_time > 7 * days) | (duration > 365 * days)) {
         return null();
     }
     ;; WARNING: beneficiary_address is obtained from cs~load_msg_addr that is LDMSGADDR and it by documentation loads MsgAddress
@@ -107,7 +110,7 @@ slice transfer_ownership(int my_balance, slice owner_address, slice in_msg_body,
 
     force_chain(new_owner_address);
 
-    int rest_amount = my_balance - min_tons_for_storage();
+    int rest_amount = my_balance - min_tons_for_storage;
     if (forward_amount) {
         rest_amount -= (forward_amount + fwd_fees);
     }
@@ -391,8 +394,8 @@ slice get_username() method_id {
 (int, int, slice) royalty_params() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
-    (int numerator, int denomenator, slice destination) = unpack_nft_royalty_params(royalty_params);
-    return (numerator, denomenator, destination);
+    (int numerator, int denominator, slice destination) = unpack_nft_royalty_params(royalty_params);
+    return (numerator, denominator, destination);
 }
 
 ;; (<string> subdomain, <uint256> category) -> (<int> prefix_len, <cell> result)

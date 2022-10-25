@@ -1,4 +1,5 @@
-const int one_ton = 1000000000;
+const int tons = 1000000000;
+const int days = 60 * 60 * 24;
 const int dns_next_resolver_prefix = 0xba93; ;; dns_next_resolver prefix - https://github.com/ton-blockchain/ton/blob/7e3df93ca2ab336716a230fceb1726d81bac0a06/crypto/block/block.tlb#L819
 
 const int op::fill_up = 0x370fec51;
@@ -74,11 +75,11 @@ int equal_slices(slice a, slice b) asm "SDEQ";
 int builder_null?(builder b) asm "ISNULL";
 builder store_builder(builder to, builder from) asm "STBR";
 
-int workchain() asm "0 PUSHINT";
+const workchain = 0;
 
 () force_chain(slice addr) impure inline {
     (int wc, _) = parse_std_addr(addr);
-    throw_unless(err::invalid_workchain, wc == workchain());
+    throw_unless(err::invalid_workchain, wc == workchain);
 }
 
 slice zero_address() inline {
