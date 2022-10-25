@@ -66,16 +66,13 @@ slice zero_address() asm "b{00} PUSHSLICE";
 
 ;; "ton\0test\0" -> "ton"
 int get_top_domain_bits(slice domain) inline {
-    int i = 0;
-    int need_break = 0;
-    do {
-        int char = domain~load_uint(8); ;; we do not check domain.length because it MUST contains \0 character
-        need_break = char == 0;
-        if (~ need_break) {
-            i += 8;
-        }
-    } until (need_break);
-    throw_if(201, i == 0); ;; starts with \0
+    int i = -8;
+    int char = 1;
+    while (char) {
+        i += 8;
+        char = domain~load_uint(8); ;; we do not check domain.length because it MUST contains \0 character
+    }
+    throw_unless(201, i); ;; should not start with \0
     return i;
 }
 
