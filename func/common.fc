@@ -162,6 +162,18 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
     ;;  1 |  bounce:Bool       = True
     ;;  0 |  bounced:Bool      = False
     ;; 00 |  src:MsgAddress    = addr_none$00
+    ;;       dest:MsgAddressInt <- dest
+    ;;       value:CurrencyCollection
+    ;;         grams:Grams <- 0
+    ;;         other:ExtraCurrencyCollection <- 1 zero bit
+    ;;       ihr_fee:Grams <- 0 (4 zero bits)
+    ;;       fwd_fee:Grams <- 0 (4 zero bits)
+    ;;       created_lt:uint64 <- 0 (64 zero bits)
+    ;;       created_at:uint32 <- 0 (32 zero bits)
+    ;;       init:(Maybe (Either StateInit ^StateInit))
+    ;;             1 ^ yes                 1 ^ ref <- 2 one bits
+    ;;       body:(Either X ^X)
+    ;;                      1^ ref <- 1 one bit
     return begin_cell()
             .store_uint(0x18, 6) ;; 011000 tag=0, ihr_disabled=1, allow_bounces=1, bounced=1, add_none
             .store_slice(dest)
@@ -179,6 +191,18 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
     ;;  0 |  bounce:Bool       = False
     ;;  0 |  bounced:Bool      = False
     ;; 00 |  src:MsgAddress    = addr_none$00
+    ;;       dest:MsgAddressInt <- to_address
+    ;;       value:CurrencyCollection
+    ;;         grams:Grams <- amount
+    ;;         other:ExtraCurrencyCollection <- 1 zero bit
+    ;;       ihr_fee:Grams <- 0 (4 zero bits)
+    ;;       fwd_fee:Grams <- 0 (4 zero bits)
+    ;;       created_lt:uint64 <- 0 (64 zero bits)
+    ;;       created_at:uint32 <- 0 (32 zero bits)
+    ;;       init:(Maybe (Either StateInit ^StateInit))
+    ;;             0 ^ no <- 1 zero bit
+    ;;       body:(Either X ^X)
+    ;;                    0^embed <- 1 zero bit
     var msg = begin_cell()
             .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 010000
             .store_slice(to_address)
