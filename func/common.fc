@@ -1,59 +1,61 @@
 const int tons = 1000000000;
 const int days = 60 * 60 * 24;
+
 const int dns_next_resolver_prefix = 0xba93; ;; dns_next_resolver prefix - https://github.com/ton-blockchain/ton/blob/7e3df93ca2ab336716a230fceb1726d81bac0a06/crypto/block/block.tlb#L819
 
 const int op::fill_up = 0x370fec51;
-const int op::outbid_notification = 0x557cea20;
-const int op::change_dns_record = 0x4eb1f0f9;
-const int op::dns_balance_release = 0x4ed14b65; ;; CONSTANT NOT USED
+const int op::outbid_notification     = 0x557cea20;
+const int op::change_dns_record       = 0x4eb1f0f9;
+const int op::dns_balance_release     = 0x4ed14b65; ;; CONSTANT NOT USED
 
-const int op::telemint_msg_deploy = 0x4637289a;
-const int op::teleitem_msg_deploy = 0x299a3e15;
-const int op::teleitem_start_auction = 0x487a8e81;
+const int op::telemint_msg_deploy     = 0x4637289a;
+const int op::teleitem_msg_deploy     = 0x299a3e15;
+const int op::teleitem_start_auction  = 0x487a8e81;
 const int op::teleitem_cancel_auction = 0x371638ae;
-const int op::teleitem_bid_info = 0x38127de1;
-const int op::teleitem_return_bid = 0xa43227e1;
-const int op::teleitem_ok = 0xa37a0983;
+const int op::teleitem_bid_info       = 0x38127de1;
+const int op::teleitem_return_bid     = 0xa43227e1;
+const int op::teleitem_ok             = 0xa37a0983;
 
-const int op::nft_cmd_transfer = 0x5fcc3d14;
-const int op::nft_cmd_get_static_data = 0x2fcb26a2;
-const int op::nft_cmd_edit_content = 0x1a0b9d51;          ;; CONSTANT NOT USED
+const int op::nft_cmd_transfer              = 0x5fcc3d14;
+const int op::nft_cmd_get_static_data       = 0x2fcb26a2;
+const int op::nft_cmd_edit_content          = 0x1a0b9d51; ;; CONSTANT NOT USED
 const int op::nft_answer_ownership_assigned = 0x05138d91; ;; CONSTANT NOT USED
-const int op::nft_answer_excesses = 0xd53276db;           ;; CONSTANT NOT USED
+const int op::nft_answer_excesses           = 0xd53276db; ;; CONSTANT NOT USED
 
-const int op::ownership_assigned = 0x05138d91;
-const int op::excesses = 0xd53276db;
-const int op::get_static_data = 0x2fcb26a2;
-const int op::report_static_data = 0x8b771735;
-const int op::get_royalty_params = 0x693d3950;
+const int op::ownership_assigned    = 0x05138d91;
+const int op::excesses              = 0xd53276db;
+const int op::get_static_data       = 0x2fcb26a2;
+const int op::report_static_data    = 0x8b771735;
+const int op::get_royalty_params    = 0x693d3950;
 const int op::report_royalty_params = 0xa8cb00ad;
 
-const int err::invalid_string_length = 70;
+const int err::invalid_string_length    = 70;
 
-const int err::invalid_length = 201;
-const int err::invalid_signature = 202;
-const int err::wrong_subwallet_id = 203;
-const int err::not_yet_valid_signature = 204;
-const int err::expired_signature = 205;
-const int err::not_enough_funds = 206;
-const int err::wrong_topup_comment = 207;
-const int err::unknown_op = 208;
-const int err::uninited = 210;
-const int err::too_small_stake = 211;
+const int err::invalid_length           = 201;
+const int err::invalid_signature        = 202;
+const int err::wrong_subwallet_id       = 203;
+const int err::not_yet_valid_signature  = 204;
+const int err::expired_signature        = 205;
+const int err::not_enough_funds         = 206;
+const int err::wrong_topup_comment      = 207;
+const int err::unknown_op               = 208;
+const int err::uninited                 = 210;
+const int err::too_small_stake          = 211;
 const int err::expected_onchain_content = 212;
-const int err::forbidden_not_deploy = 213;
-const int err::forbidden_not_stake = 214;
-const int err::forbidden_topup = 215;
-const int err::forbidden_transfer = 216;
-const int err::forbidden_change_dns = 217;
-const int err::forbidden_touch = 218;
-const int err::no_auction = 219;
-const int err::forbidden_auction = 220;
-const int err::already_has_stakes = 221;
-const int err::auction_already_started = 222;
-const int err::invalid_auction_config = 223;
+const int err::forbidden_not_deploy     = 213;
+const int err::forbidden_not_stake      = 214;
+const int err::forbidden_topup          = 215;
+const int err::forbidden_transfer       = 216;
+const int err::forbidden_change_dns     = 217;
+const int err::forbidden_touch          = 218;
+const int err::no_auction               = 219;
+const int err::forbidden_auction        = 220;
+const int err::already_has_stakes       = 221;
+const int err::auction_already_started  = 222;
+const int err::invalid_auction_config   = 223;
 
-const int err::invalid_workchain = 333;
+const int err::invalid_workchain        = 333;
+
 const int err::doesnt_start_with_zero_byte = 413;
 
 const slice comm::topup = "#topup";
@@ -61,10 +63,10 @@ const slice comm::topup = "#topup";
 const int cat::dns_next_resolver = "dns_next_resolver"H;
 
 ;; MF category: Message Flags
-const int mf::paying_fees = 1;
-const int mf::ignore_errors = 2;
-;; const int mf::self_destruct = 32;
-const int mf::add_inbound_value = 64;
+const int mf::paying_fees              = 1;
+const int mf::ignore_errors            = 2;
+;; const int mf::self_destruct         = 32;
+const int mf::add_inbound_value        = 64;
 ;; const int mf::add_remaining_balance = 128;
 
 ;; Warning: some constants exist here (and even in TLB) and are not used in code!
