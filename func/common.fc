@@ -186,8 +186,8 @@ cell pack_item_config(int item_index, slice collection_address) inline {
 
 cell pack_nft_royalty_params(int numerator, int denumerator, slice destination) inline {
     return begin_cell()
-            .store_int(numerator, 16)
-            .store_int(denumerator, 16)
+            .store_uint(numerator, 16)
+            .store_uint(denumerator, 16)
             .store_slice(destination)
             .end_cell();
 }
@@ -195,8 +195,8 @@ cell pack_nft_royalty_params(int numerator, int denumerator, slice destination) 
 (int, int, slice) unpack_nft_royalty_params(cell c) inline {
     var cs = c.begin_parse();
     var res = (
-            cs~load_int(16),
-            cs~load_int(16),
+            cs~load_uint(16),
+            cs~load_uint(16),
             cs~load_msg_addr()
     );
     cs.end_parse();
