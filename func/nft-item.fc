@@ -164,9 +164,8 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         throw_unless(err::forbidden_not_deploy, op == op::teleitem_msg_deploy);
         if (cell_null?(state)) {
             cell new_state = deploy_item(my_balance, in_msg_body);
-            if (~ cell_null?(new_state)) {
-                return save_item_data(config, new_state);
-            }
+            throw_if(err::uninited, cell_null?(new_state));        
+            return save_item_data(config, new_state);   
         }
         slice bidder_address = in_msg_body~load_msg_addr(); ;; first field in teleitem_msg_deploy
         send_msg(bidder_address, 0, op::teleitem_return_bid, cur_lt(), null(), 64); ;; carry all the remaining value of the inbound message
