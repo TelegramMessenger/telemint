@@ -67,9 +67,8 @@ cell process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell au
     if (~ cell_null?(old_last_bid)) {
         (slice old_bidder_address, int old_bid, _) = unpack_last_bid(old_last_bid);
         int to_send = min(my_balance - min_tons_for_storage(), old_bid);
-        if (to_send > 0) {
-            send_msg(old_bidder_address, to_send, op::outbid_notification, cur_lt(), null(), 1);
-        }
+        throw_unless(err::not_enough_funds, to_send > 0);
+        send_msg(old_bidder_address, to_send, op::outbid_notification, cur_lt(), null(), 1);
     }
     cell new_auction_state = pack_auction_state(new_last_bid, new_min_bid, new_end_time);
     return pack_auction(new_auction_state, auction_config);
