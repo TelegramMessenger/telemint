@@ -41,7 +41,7 @@
 
     int op = in_msg_body~load_uint(32);
 
-    if (op == 0) { ;; regular money transfer
+    if (op == op::simple_transfer_0) { ;; regular money transfer
         ;; NB: it is not possible to recover any money transferred to this account
         ;; so we return back all transfers except ones with comment #topup in it
         throw_unless(err::wrong_topup_comment, equal_slices(in_msg_body, comm::topup) & (in_msg_body.slice_refs() == 0));

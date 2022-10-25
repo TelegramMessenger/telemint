@@ -164,7 +164,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     cs~load_grams(); ;; skip ihr_fee
     int fwd_fee = cs~load_grams(); ;; we use message fwd_fee for estimation of forward_payload costs
 
-    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
+    int op = in_msg_body.slice_empty?() ? op::simple_transfer_0 : in_msg_body~load_uint(32);
 
     (cell config, cell state) = unpack_item_data();
     (int index, slice collection_address) = unpack_item_config(config);
@@ -229,7 +229,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
 
     ;; NB: if maybe_end_auction did not finish auction, op == 0 will be rerouted to this condition (and only it is allowed actually)
     if (~ cell_null?(auction)) {
-        throw_unless(err::forbidden_not_stake, op == 0);
+        throw_unless(err::forbidden_not_stake, op == op::simple_transfer_0);
         ;; During analysis of execution and data flow diagram I discovered that here may be an issue because my_balance is not updated by process_new_bid
         ;;    despite the fact that actually an old bid message may be sent that really changes the balance.
         ;; In order to fix that I return new balance from process_new_bid and update it accordingly inside that function.
@@ -239,7 +239,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         return save_item_data(config, new_state);
     }
 
-    if (op == 0) {
+    if (op == op::simple_transfer_0) {
         int is_topup = equal_slices(in_msg_body, comm::topup) & (in_msg_body.slice_refs() == 0);
         throw_unless(err::forbidden_topup, is_topup | equal_slices(sender_address, owner_address)); ;; only owner can fill-up balance, prevent coins lost right after the auction
         ;; if owner send bid right after auction he can restore it by transfer response message
