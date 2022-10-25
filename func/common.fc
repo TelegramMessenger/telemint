@@ -69,6 +69,8 @@ const int mf::ignore_errors            = 2;
 const int mf::add_inbound_value        = 64;
 ;; const int mf::add_remaining_balance = 128;
 
+const int need_to_save_item_data = -1;
+
 ;; Warning: some constants exist here (and even in TLB) and are not used in code!
 ;; This may be a dire mistake or yet missing logic that is to be implemented.
 

@@ -208,7 +208,9 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         ;; Therefore for for all those executions it is return save_item_data that persists or throw that reverts everything.
         ;; NB: Obvious idea of persisting here is bad because then extra pack_item_state and save_item_data will be called for each bid in the auction, and that's undesriable.
         ;; I will reuse existing flags variable to try to decrease the amount of variables and correspondingly required gas.
-        flags = -1; ;; Such value of flags variable is normally impossible because it is uint4.
+        if (cell_null?(auction)) {
+            flags = need_to_save_item_data; ;; Such value of flags (-1) variable is normally impossible because it is uint4.
+        }
     }
 
     if (op == op::teleitem_cancel_auction) {
@@ -248,7 +250,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         ;; On the other hand, calling pack_item_state and save_item_data each time for simple #topup may be also unwanted behaviour.
         ;;
         ;; Update: It seems even worse, not just owner but anyone can send #topup to trigger this issue.
-        if (flags == -1) {
+        if (flags == need_to_save_item_data) {
             ;; flags equals -1 if, and only if, auction was running when #topup message was received from the new owner.
             ;; Why? If auction keeps running the previous to (op == 0) condition (~ cell_null?(auction)) will take precedence.
             ;; If auction was not running flags cannot be -1 because it is read as uint4.
