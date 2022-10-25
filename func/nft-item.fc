@@ -1,9 +1,12 @@
-int min_tons_for_storage() asm "1000000000 PUSHINT"; ;; 1 TON
+#include "stdlib.fc";
+#include "common.fc";
+
+const int min_tons_for_storage = 1 * tons;
 
 int send_money(int my_balance, slice address, int value) impure {
-    int amount_to_send = min(my_balance - min_tons_for_storage(), value);
+    int amount_to_send = min(my_balance - min_tons_for_storage, value);
     if (amount_to_send > 0) {
-        send_msg(address, amount_to_send, op::fill_up, cur_lt(), null(), 2); ;; ignore errors
+        send_msg(address, amount_to_send, op::fill_up, cur_lt(), null(), mf::ignore_errors);
         my_balance -= amount_to_send;
     }
     return my_balance;
@@ -35,7 +38,7 @@ int send_money(int my_balance, slice address, int value) impure {
                     .store_int(op::teleitem_bid_info, 32)
                     .store_grams(bid)
                     .store_uint(bid_ts, 32),
-            1); ;; paying fees, revert on errors
+            mf::paying_fees); ;; revert on errors
 
     if ((royalty_num > 0) & (royalty_denom > 0) & ~ equal_slices(royalty_address, beneficiary_address)) {
         int royalty_value = min(bid, muldiv(bid, royalty_num, royalty_denom));
@@ -48,7 +51,7 @@ int send_money(int my_balance, slice address, int value) impure {
     return (my_balance, bidder_address, null());
 }
 
-cell process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell auction) impure {
+(int, cell) process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell auction, int fwd_fees) impure {
     (cell auction_state, cell auction_config) = unpack_auction(auction);
     (cell old_last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
     throw_if(err::too_small_stake, new_bid < min_bid);
@@ -59,24 +62,30 @@ cell process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell au
         new_end_time = 0;
     }
     ;; step is at least GR$1
-    int new_min_bid = max(new_bid + 1000000000, (new_bid * (100 + min_bid_step) + 99) / 100);
+    int new_min_bid = max(new_bid + 1 * tons, (new_bid * (100 + min_bid_step) + 99) / 100);
     if (~ cell_null?(old_last_bid)) {
         (slice old_bidder_address, int old_bid, _) = unpack_last_bid(old_last_bid);
-        int to_send = min(my_balance - min_tons_for_storage(), old_bid);
+        int to_send = min(my_balance - min_tons_for_storage, old_bid);
         if (to_send > 0) {
-            send_msg(old_bidder_address, to_send, op::outbid_notification, cur_lt(), null(), 1);
+            send_msg(old_bidder_address, to_send, op::outbid_notification, cur_lt(), null(), mf::paying_fees);
+            my_balance -= (to_send + fwd_fees);
         }
     }
     cell new_auction_state = pack_auction_state(new_last_bid, new_min_bid, new_end_time);
-    return pack_auction(new_auction_state, auction_config);
+    return (my_balance, pack_auction(new_auction_state, auction_config));
 }
 
 cell prepare_auction(cell auction_config) {
     (slice beneficiary_address, int initial_min_bid, int max_bid, int min_bid_step, int min_extend_time, int duration) = unpack_auction_config(auction_config);
-    if ((initial_min_bid < 2 * min_tons_for_storage()) | ((max_bid != 0) & (max_bid < initial_min_bid)) |
-            (min_bid_step <= 0) | (min_extend_time > 60 * 60 * 24 * 7) | (duration > 60 * 60 * 24 * 365)) {
+    if ((initial_min_bid < 2 * min_tons_for_storage) | ((max_bid != 0) & (max_bid < initial_min_bid)) |
+            (min_bid_step <= 0) | (min_extend_time > 7 * days) | (duration > 365 * days)) {
         return null();
     }
+    ;; WARNING: beneficiary_address is obtained from cs~load_msg_addr that is LDMSGADDR and it by documentation loads MsgAddress
+    ;; While in tlb, teleitem_auction_config$_ beneficiary_address:MsgAddressInt, and MsgAddress can be also MsgAddressExt, including addr_none$00
+    ;; Therefore it is possible to abrubtly push in such address violating the spec and possibly causing problems in send_money in maybe_end_auction
+    ;; Need to check that address is MsgAddressInt, the easiest way is to use parse_std_addr (REWRITESTDADDR) that will fail for non MsgAddressInt
+    (_, _) = parse_std_addr(beneficiary_address);
     cell auction_state = pack_auction_state(null(), initial_min_bid, now() + duration);
     return pack_auction(auction_state, auction_config);
 }
@@ -88,11 +97,11 @@ cell deploy_item(int my_balance, slice msg) {
     if (cell_null?(auction)) {
         return null();
     }
-    cell new_auction = process_new_bid(my_balance, bidder_address, bid, auction);
+    ;; The change should not affect this execution flow at all since old_bid cell is null here after creation
+    (my_balance, cell new_auction) = process_new_bid(my_balance, bidder_address, bid, auction, 0);
     (my_balance, slice owner, new_auction) = maybe_end_auction(my_balance, zero_address(), new_auction, royalty_params, 0);
     cell content = pack_item_content(nft_content, null(), token_info);
     return pack_item_state(owner, content, new_auction, royalty_params);
-
 }
 
 slice transfer_ownership(int my_balance, slice owner_address, slice in_msg_body, int fwd_fees) impure inline {
@@ -101,7 +110,7 @@ slice transfer_ownership(int my_balance, slice owner_address, slice in_msg_body,
 
     force_chain(new_owner_address);
 
-    int rest_amount = my_balance - min_tons_for_storage();
+    int rest_amount = my_balance - min_tons_for_storage;
     if (forward_amount) {
         rest_amount -= (forward_amount + fwd_fees);
     }
@@ -114,12 +123,12 @@ slice transfer_ownership(int my_balance, slice owner_address, slice in_msg_body,
 
     if (forward_amount) {
         send_msg(new_owner_address, forward_amount, op::ownership_assigned, query_id,
-                begin_cell().store_slice(owner_address).store_slice(forward_payload), 1); ;; paying fees, revert on errors
+                begin_cell().store_slice(owner_address).store_slice(forward_payload), mf::paying_fees); ;; revert on errors
 
     }
     if (need_response) {
         force_chain(response_destination);
-        send_msg(response_destination, rest_amount, op::excesses, query_id, null(), 1); ;; paying fees, revert on errors
+        send_msg(response_destination, rest_amount, op::excesses, query_id, null(), mf::paying_fees); ;; revert on errors
     }
 
     return new_owner_address;
@@ -155,7 +164,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     cs~load_grams(); ;; skip ihr_fee
     int fwd_fee = cs~load_grams(); ;; we use message fwd_fee for estimation of forward_payload costs
 
-    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
+    int op = in_msg_body.slice_empty?() ? op::simple_transfer_0 : in_msg_body~load_uint(32);
 
     (cell config, cell state) = unpack_item_data();
     (int index, slice collection_address) = unpack_item_config(config);
@@ -169,30 +178,39 @@ cell change_dns_record(cell dns, slice in_msg_body) {
             }
         }
         slice bidder_address = in_msg_body~load_msg_addr(); ;; first field in teleitem_msg_deploy
-        send_msg(bidder_address, 0, op::teleitem_return_bid, cur_lt(), null(), 64); ;; carry all the remaining value of the inbound message
+        send_msg(bidder_address, 0, op::teleitem_return_bid, cur_lt(), null(), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         return ();
     }
 
     throw_if(err::uninited, cell_null?(state));
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
+
+    ;; Those getters do not care for value of (my_balance, owner_address, auction) and therefore should not call maybe_end_auction whose result is discarded
+
+    if (op == op::get_royalty_params) {
+        int query_id = in_msg_body~load_uint(64);
+        send_msg(sender_address, 0, op::report_royalty_params, query_id, begin_cell().store_slice(royalty_params.begin_parse()), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
+        return ();
+    }
+
+    if (op == op::nft_cmd_get_static_data) {
+        int query_id = in_msg_body~load_uint(64);
+        send_msg(sender_address, 0, op::report_static_data, query_id, begin_cell().store_uint(index, 256).store_slice(collection_address), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
+        return ();
+    }
+
     if (~ cell_null?(auction)) {
         ;; sender do not pay for auction with its message
         my_balance -= msg_value;
         (my_balance, owner_address, auction) = maybe_end_auction(my_balance, owner_address, auction, royalty_params, 0);
-        cell new_state = pack_item_state(owner_address, content, auction, royalty_params);
-        save_item_data(config, new_state);
         my_balance += msg_value;
-    }
-
-    if (op == op::get_royalty_params) {
-        int query_id = in_msg_body~load_uint(64);
-        send_msg(sender_address, 0, op::report_royalty_params, query_id, begin_cell().store_slice(royalty_params.begin_parse()), 64); ;; carry all the remaining value of the inbound message
-        return ();
-    }
-    if (op == op::nft_cmd_get_static_data) {
-        int query_id = in_msg_body~load_uint(64);
-        send_msg(sender_address, 0, op::report_static_data, query_id, begin_cell().store_uint(index, 256).store_slice(collection_address), 64); ;; carry all the remaining value of the inbound message
-        return ();
+        ;; It seems that state persisting is missing. However, closer look of execution flow points out that save_item_data is called in all branches except for the one.
+        ;; Therefore for for all those executions it is return save_item_data that persists or throw that reverts everything.
+        ;; NB: Obvious idea of persisting here is bad because then extra pack_item_state and save_item_data will be called for each bid in the auction, and that's undesriable.
+        ;; I will reuse existing flags variable to try to decrease the amount of variables and correspondingly required gas.
+        if (cell_null?(auction)) {
+            flags = need_to_save_item_data; ;; Such value of flags (-1) variable is normally impossible because it is uint4.
+        }
     }
 
     if (op == op::teleitem_cancel_auction) {
@@ -204,26 +222,46 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         throw_unless(err::already_has_stakes, cell_null?(last_bid));
         cell new_state = pack_item_state(owner_address, content, null(), royalty_params);
         if (query_id) {
-            send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), 64); ;; carry all the remaining value of the inbound message
+            send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         }
         return save_item_data(config, new_state);
     }
 
+    ;; NB: if maybe_end_auction did not finish auction, op == 0 will be rerouted to this condition (and only it is allowed actually)
     if (~ cell_null?(auction)) {
-        throw_unless(err::forbidden_not_stake, op == 0);
-        auction = process_new_bid(my_balance, sender_address, msg_value, auction);
+        throw_unless(err::forbidden_not_stake, op == op::simple_transfer_0);
+        ;; During analysis of execution and data flow diagram I discovered that here may be an issue because my_balance is not updated by process_new_bid
+        ;;    despite the fact that actually an old bid message may be sent that really changes the balance.
+        ;; In order to fix that I return new balance from process_new_bid and update it accordingly inside that function.
+        (my_balance, auction) = process_new_bid(my_balance, sender_address, msg_value, auction, fwd_fee);
         (my_balance, owner_address, auction) = maybe_end_auction(my_balance, owner_address, auction, royalty_params, 0);
         cell new_state = pack_item_state(owner_address, content, auction, royalty_params);
         return save_item_data(config, new_state);
     }
 
-    if (op == 0) {
-        int is_topup = equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0);
+    if (op == op::simple_transfer_0) {
+        int is_topup = equal_slices(in_msg_body, comm::topup) & (in_msg_body.slice_refs() == 0);
         throw_unless(err::forbidden_topup, is_topup | equal_slices(sender_address, owner_address)); ;; only owner can fill-up balance, prevent coins lost right after the auction
         ;; if owner send bid right after auction he can restore it by transfer response message
+        ;; 
+        ;; This flow causes specific problems. If auction end conditions are met and the new owner sends #topup then end auction ceremonies will be carried out.
+        ;; HOWEVER, no data will be updated since save_item_data is not called in this flow. 
+        ;; Therefore, send_msg and send_money in maybe_end_auction will be called multiple times that is not desirable to say the least.
+        ;; On the other hand, calling pack_item_state and save_item_data each time for simple #topup may be also unwanted behaviour.
+        ;;
+        ;; Update: It seems even worse, not just owner but anyone can send #topup to trigger this issue.
+        if (flags == need_to_save_item_data) {
+            ;; flags equals -1 if, and only if, auction was running when #topup message was received from the new owner.
+            ;; Why? If auction keeps running the previous to (op == 0) condition (~ cell_null?(auction)) will take precedence.
+            ;; If auction was not running flags cannot be -1 because it is read as uint4.
+            ;; If auction was running and was ended in first (~ cell_null?(auction)) condition then owner_address will be updated there.
+            cell new_state = pack_item_state(owner_address, content, auction, royalty_params);
+            return save_item_data(config, new_state);
+            ;; Now each flow where (my_balance, owner_address, auction) may be updated ends either in save_item_data or exception and reversal.
+        }
         return ();
     }
-
+    
     if (op == op::teleitem_start_auction) {
         throw_unless(err::auction_already_started, cell_null?(auction));
         throw_unless(err::forbidden_auction, equal_slices(sender_address, owner_address));
@@ -233,7 +271,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         throw_if(err::invalid_auction_config, cell_null?(new_auction));
         cell new_state = pack_item_state(owner_address, content, new_auction, royalty_params);
         if (query_id) {
-            send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), 64); ;; carry all the remaining value of the inbound message
+            send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         }
         return save_item_data(config, new_state);
     }
@@ -251,7 +289,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         cell new_dns = change_dns_record(dns, in_msg_body);
         cell new_content = pack_item_content(nft_content, new_dns, token_info);
         cell new_state = pack_item_state(owner_address, new_content, auction, royalty_params);
-        send_msg(sender_address, 0, op::teleitem_ok, cur_lt(), null(), 64); ;; carry all the remaining value of the inbound message
+        send_msg(sender_address, 0, op::teleitem_ok, cur_lt(), null(), mf::add_inbound_value); ;; carry all the remaining value of the inbound message
         return save_item_data(config, new_state);
     }
     throw(err::unknown_op);
@@ -270,6 +308,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
 ;;  GET Methods
 ;;
 
+;; -> (<int1> has_state, <uint256> item_index, <addr> collection_address, <addr> owner_address, <cell> nft_content)
 (int, int, slice, slice, cell) get_nft_data() method_id {
     (cell config, cell state) = unpack_item_data();
     (int item_index, slice collection_address) = unpack_item_config(config);
@@ -281,6 +320,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     return (-1, item_index, collection_address, owner_address, nft_content);
 }
 
+;; -> (<addr> bidder_address, <grams> bid, <uint32> end_time)
 (slice, int, int) get_auction_info() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -291,12 +331,16 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
     slice bidder_address = null();
     int bid = 0;
-    if (cell_null?(last_bid)) {
+    if (~ cell_null?(last_bid)) {
+        ;; It seems that the condition had logic error, tried to unpack last bid only if it is null.
+        ;; Strange enough, in get_telemint_auction_state the logic is correct.
         (bidder_address, bid, _) = unpack_last_bid(last_bid);
     }
     return (bidder_address, bid, end_time);
 }
 
+;; -> (<string> full_domain) = domain + token_name + \0
+;; NB: Shouldn't there be \0 between domain and token_name? Or is it guaranteed that domain has \0 at end? Or is it not needed?
 slice get_full_domain() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -305,6 +349,7 @@ slice get_full_domain() method_id {
     return begin_cell().store_slice(domain).store_slice(token_name).store_int(0, 8).end_cell().begin_parse();
 }
 
+;; -> (<string> token_name)
 slice get_telemint_token_name() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -313,10 +358,12 @@ slice get_telemint_token_name() method_id {
     return token_name;
 }
 
+;; -> (<string> token_name)
 slice get_username() method_id {
     return get_telemint_token_name();
 }
 
+;; -> (<addr> bidder_address, <grams> bid, <uint32> bid_ts, <grams> min_bid, <uint32> end_time)
 (slice, int, int, int, int) get_telemint_auction_state() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -330,7 +377,8 @@ slice get_username() method_id {
     return (bidder_address, bid, bid_ts, min_bid, end_time);
 }
 
-
+;; -> (<addr> beneficiary_address, <grams> initial_min_bid, <grams> max_bid, 
+;;     <uint8> min_bid_step, <uint32> min_extend_time, <uint32> duration)
 (slice, int, int, int, int, int) get_telemint_auction_config() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -344,6 +392,7 @@ slice get_username() method_id {
     return (beneficiary_address, initial_min_bid, max_bid, min_bid_step, min_extend_time, duration);
 }
 
+;; -> (<uint16> numerator, <uint16> denumerator, <addr> destination)
 (int, int, slice) royalty_params() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -351,19 +400,20 @@ slice get_username() method_id {
     return (numerator, denominator, destination);
 }
 
+;; (<string> subdomain, <uint256> category) -> (<int> prefix_len, <cell> result)
 (int, cell) dnsresolve(slice subdomain, int category) method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
     (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
 
     int subdomain_bits = slice_bits(subdomain);
-    throw_unless(70, mod(subdomain_bits, 8) == 0);
+    throw_unless(err::invalid_string_length, mod(subdomain_bits, 8) == 0);
 
     int starts_with_zero_byte = subdomain.preload_int(8) == 0;
-    throw_unless(413, starts_with_zero_byte);
+    throw_unless(err::doesnt_start_with_zero_byte, starts_with_zero_byte);
 
     if (subdomain_bits > 8) { ;; more than "." requested
-        category = "dns_next_resolver"H;
+        category = cat::dns_next_resolver;
     }
 
     if (category == 0) { ;;  all categories are requested
