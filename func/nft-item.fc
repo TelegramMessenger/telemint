@@ -179,6 +179,8 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         ;; sender do not pay for auction with its message
         my_balance -= msg_value;
         (my_balance, owner_address, auction) = maybe_end_auction(my_balance, owner_address, auction, royalty_params, 0);
+        cell new_state = pack_item_state(owner_address, content, auction, royalty_params);
+        save_item_data(config, new_state);
         my_balance += msg_value;
     }
 
