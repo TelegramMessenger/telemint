@@ -91,9 +91,9 @@ _ load_text_ref(slice cs) inline {
 }
 
 builder store_text(builder b, slice text) inline {
-    int len = slice_bits(text);
-    throw_unless(err::invalid_length, mod(len, 8) == 0);
-    return b.store_uint(slice_bits(text) / 8, 8)
+    (int len, int rem) = slice_bits(text) /% 8;
+    throw_if(err::invalid_length, rem);
+    return b.store_uint(len, 8)
             .store_slice(text);
 }
 
@@ -125,7 +125,7 @@ cell pack_state_init(cell code, cell data) inline {
 
 cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
     return begin_cell()
-            .store_uint(0x18, 6) ;; 011000 tag=0, ihr_disabled=1, allow_bounces=1, bounced=1, add_none
+            .store_uint(0x18, 6) ;; 011000 tag=0, ihr_disabled=1, allow_bounces=1, bounced=0, add_none
             .store_slice(dest)
             .store_grams(0) ;; grams
             .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
@@ -186,8 +186,8 @@ cell pack_item_config(int item_index, slice collection_address) inline {
 
 cell pack_nft_royalty_params(int numerator, int denominator, slice destination) inline {
     return begin_cell()
-            .store_int(numerator, 16)
-            .store_int(denominator, 16)
+            .store_uint(numerator, 16)
+            .store_uint(denominator, 16)
             .store_slice(destination)
             .end_cell();
 }
@@ -195,8 +195,8 @@ cell pack_nft_royalty_params(int numerator, int denominator, slice destination) 
 (int, int, slice) unpack_nft_royalty_params(cell c) inline {
     var cs = c.begin_parse();
     var res = (
-            cs~load_int(16),
-            cs~load_int(16),
+            cs~load_uint(16),
+            cs~load_uint(16),
             cs~load_msg_addr()
     );
     cs.end_parse();
