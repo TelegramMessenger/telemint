@@ -14,7 +14,7 @@ nft_collection_cmd_get_royalty_params#693d3950 = NftCollectionCmd;
 
 nft_answer_ownership_assigned#05138d91 query_id:uint64 prev_owner:MsgAddress forward_payload:(Either Cell ^Cell) = NftAnswer;
 nft_answer_excesses#d53276db query_id:uint64 = NftAnswer;
-nft_royalty_params#_ numerator:int16 denominator:uint16 destination:MsgAddress = NftRoyaltyParams;
+nft_royalty_params#_ numerator:int16 denominator:int16 destination:MsgAddress = NftRoyaltyParams;
 
 teleitem_bid_info#38127de1 bid:Grams bid_ts:uint32 = TeleitemBidInfo;
 teleitem_last_bid bidder_address:MsgAddressInt bid:Grams bid_ts:uint32 = TeleitemLastBid;
