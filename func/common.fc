@@ -76,12 +76,12 @@ int get_top_domain_bits(slice domain) inline {
     return i;
 }
 
-_ load_text(slice cs) inline {
+(slice, slice) load_text(slice cs) inline {
     int len = cs~load_uint(8);
     slice text = cs~load_bits(len * 8);
     return (cs, text);
 }
-_ load_text_ref(slice cs) inline {
+(slice, slice) load_text_ref(slice cs) inline {
     slice text_cs = cs~load_ref().begin_parse();
     slice text = text_cs~load_text();
     return (cs, text);
@@ -247,7 +247,7 @@ cell pack_item_state(slice owner_address, cell content, cell auction, cell royal
             .end_cell();
 }
 
-_ save_item_data(config, state) impure inline {
+() save_item_data(config, state) impure inline {
     set_data(pack_item_data(config, state));
 }
 
@@ -293,7 +293,7 @@ cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell con
     return res;
 }
 
-_ save_collection_data(int touched, int subwallet_id, int owner_key, cell content, cell item_code, slice full_domain, cell royalty_params) impure inline {
+() save_collection_data(int touched, int subwallet_id, int owner_key, cell content, cell item_code, slice full_domain, cell royalty_params) impure inline {
     cell data = begin_cell()
             .store_int(touched, 1)
             .store_uint(subwallet_id, 32)
@@ -306,7 +306,7 @@ _ save_collection_data(int touched, int subwallet_id, int owner_key, cell conten
     set_data(data);
 }
 
-_ unpack_signed_cmd(slice cs) inline {
+(slice, int, int, int, int, slice) unpack_signed_cmd(slice cs) inline {
     return (
             cs~load_bits(512), ;; signature
             slice_hash(cs), ;; hash
@@ -317,7 +317,7 @@ _ unpack_signed_cmd(slice cs) inline {
     );
 }
 
-_ unpack_deploy_msg(slice cs) inline {
+(slice, cell, cell, cell) unpack_deploy_msg(slice cs) inline {
     var res = (
             cs~load_text(), ;; token_name
             cs~load_ref(), ;; content
