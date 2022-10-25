@@ -38,8 +38,8 @@
         return ();
     }
     slice sender_address = cs~load_msg_addr();
-
-    int op = in_msg_body~load_uint(32);
+    
+    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
 
     if (op == op::simple_transfer_0) { ;; regular money transfer
         ;; NB: it is not possible to recover any money transferred to this account

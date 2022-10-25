@@ -29,19 +29,19 @@ int send_money(int my_balance, slice address, int value) impure {
     }
     (slice beneficiary_address, _, _, _, _, _) = unpack_auction_config(auction_config);
     (slice bidder_address, int bid, int bid_ts) = unpack_last_bid(last_bid);
-    (int royalty_num, int royalty_denum, slice royalty_address) = unpack_nft_royalty_params(royalty_params);
+    (int royalty_num, int royalty_denom, slice royalty_address) = unpack_nft_royalty_params(royalty_params);
 
     send_msg(bidder_address, 0, op::ownership_assigned, cur_lt(),
             begin_cell()
-                    .store_slice(bidder_address)
+                    .store_slice(owner)
                     .store_int(0, 1)
                     .store_int(op::teleitem_bid_info, 32)
                     .store_grams(bid)
                     .store_uint(bid_ts, 32),
             mf::paying_fees); ;; revert on errors
 
-    if ((royalty_num > 0) & (royalty_denum > 0) & ~ equal_slices(royalty_address, beneficiary_address)) {
-        int royalty_value = min(bid, muldiv(bid, royalty_num, royalty_denum));
+    if ((royalty_num > 0) & (royalty_denom > 0) & ~ equal_slices(royalty_address, beneficiary_address)) {
+        int royalty_value = min(bid, muldiv(bid, royalty_num, royalty_denom));
         bid -= royalty_value;
         my_balance = send_money(my_balance, royalty_address, royalty_value);
     }
