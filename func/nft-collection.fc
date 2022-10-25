@@ -34,8 +34,8 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_
         return ();
     }
     slice sender_address = cs~load_msg_addr();
-
-    int op = in_msg_body~load_uint(32);
+    
+    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
 
     if (op == 0) { ;; regular money transfer
         ;; NB: it is not possible to recover any money transferred to this account
