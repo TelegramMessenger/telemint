@@ -184,10 +184,10 @@ cell pack_item_config(int item_index, slice collection_address) inline {
     return res;
 }
 
-cell pack_nft_royalty_params(int numerator, int denumerator, slice destination) inline {
+cell pack_nft_royalty_params(int numerator, int denominator, slice destination) inline {
     return begin_cell()
             .store_int(numerator, 16)
-            .store_int(denumerator, 16)
+            .store_int(denominator, 16)
             .store_slice(destination)
             .end_cell();
 }

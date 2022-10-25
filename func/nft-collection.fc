@@ -77,8 +77,8 @@ slice get_nft_address_by_index(int index) method_id {
 }
 (int, int, slice) royalty_params() method_id {
     var (_, _, _, _, _, _, royalty_params) = unpack_collection_data();
-    (int numerator, int denomenator, slice destination) = unpack_nft_royalty_params(royalty_params);
-    return (numerator, denomenator, destination);
+    (int numerator, int denominator, slice destination) = unpack_nft_royalty_params(royalty_params);
+    return (numerator, denominator, destination);
 }
 
 cell get_nft_content(int index, cell individual_nft_content) method_id {
