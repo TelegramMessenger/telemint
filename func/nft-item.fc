@@ -30,7 +30,7 @@ int send_money(int my_balance, slice address, int value) impure {
 
     send_msg(bidder_address, 0, op::ownership_assigned, cur_lt(),
             begin_cell()
-                    .store_slice(bidder_address)
+                    .store_slice(owner)
                     .store_int(0, 1)
                     .store_int(op::teleitem_bid_info, 32)
                     .store_grams(bid)
