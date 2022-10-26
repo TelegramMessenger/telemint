@@ -22,7 +22,7 @@ teleitem_auction_state$_ last_bid:(Maybe ^TeleitemLastBid) min_bid:Grams end_tim
 teleitem_auction_config$_ beneficiary_address:MsgAddressInt initial_min_bid:Grams max_bid:Grams min_bid_step:uint8 min_extend_time:uint32 duration:uint32 = TeleitemAuctionConfig;
 teleitem_auction$_ state:^TeleitemAuctionState config:^TeleitemAuctionConfig = TeleitemAuction;
 
-telimint_text$_ len:(## 8) text:(bits (len * 8)) = TelemintText;
+telemint_text$_ len:(## 8) text:(bits (len * 8)) = TelemintText;
 telemint_token_info$_ name:TelemintText domain:TelemintText = TelemintTokenInfo;
 
 teleitem_return_bid#a43227e1 query_id:int64 = TeleitemAnswer;
