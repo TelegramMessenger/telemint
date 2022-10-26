@@ -49,20 +49,24 @@ const int err::forbidden_auction = 220;
 const int err::already_has_stakes = 221;
 const int err::auction_already_started = 222;
 const int err::invalid_auction_config = 223;
+const int err::incorrect_workchain = 333;
+const int err::no_first_zero_byte = 413;
+const int err::bad_subdomain_length = 70;
 
-int mod(int x, int y) asm "MOD";
+const int min_tons_for_storage = one_ton;
+const int workchain = 0;
+
 int equal_slices(slice a, slice b) asm "SDEQ";
 int builder_null?(builder b) asm "ISNULL";
 builder store_builder(builder to, builder from) asm "STBR";
-
-int workchain() asm "0 PUSHINT";
+slice zero_address() asm "b{00} PUSHSLICE";
+(slice, int) skip_first_zero_byte?(slice cs) asm "x{00} SDBEGINSQ";
 
 () force_chain(slice addr) impure inline {
     (int wc, _) = parse_std_addr(addr);
-    throw_unless(333, wc == workchain());
+    throw_unless(err::incorrect_workchain, wc == workchain);
 }
 
-slice zero_address() asm "b{00} PUSHSLICE";
 
 ;; "ton\0test\0" -> "ton"
 int get_top_domain_bits(slice domain) inline {
@@ -81,6 +85,7 @@ _ load_text(slice cs) inline {
     slice text = cs~load_bits(len * 8);
     return (cs, text);
 }
+
 _ load_text_ref(slice cs) inline {
     slice text_cs = cs~load_ref().begin_parse();
     slice text = text_cs~load_text();
@@ -88,9 +93,10 @@ _ load_text_ref(slice cs) inline {
 }
 
 builder store_text(builder b, slice text) inline {
-    (int len, int rem) = slice_bits(text) /% 8;
+    int len = slice_bits(text);
+    (int bytes, int rem) = len /% 8;
     throw_if(err::invalid_length, rem);
-    return b.store_uint(len, 8)
+    return b.store_uint(bytes, 8)
             .store_slice(text);
 }
 
@@ -114,8 +120,8 @@ cell pack_token_info(slice name, slice domain) {
 cell pack_state_init(cell code, cell data) inline {
     return begin_cell()
             .store_uint(0, 2)
-            .store_dict(code)
-            .store_dict(data)
+            .store_maybe_ref(code)
+            .store_maybe_ref(data)
             .store_uint(0, 1)
             .end_cell();
 }
@@ -140,7 +146,7 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
             .store_uint(op, 32)
             .store_uint(query_id, 64);
 
-    if (~ builder_null?(payload)) {
+    ifnot (builder_null?(payload)) {
         msg = msg.store_builder(payload);
     }
 
@@ -176,7 +182,7 @@ cell pack_item_config(int item_index, slice collection_address) inline {
 
 (cell, cell) unpack_item_data() inline {
     var cs = get_data().begin_parse();
-    var res = (cs~load_ref(), cs~load_dict());
+    var res = (cs~load_ref(), cs~load_maybe_ref());
     cs.end_parse();
     return res;
 }
@@ -203,7 +209,7 @@ cell pack_nft_royalty_params(int numerator, int denominator, slice destination) 
 cell pack_item_data(cell config, cell state) inline {
     return begin_cell()
             .store_ref(config)
-            .store_dict(state)
+            .store_maybe_ref(state)
             .end_cell();
 }
 
@@ -231,7 +237,7 @@ cell pack_item_content(cell nft_content, cell dns, cell token_info) inline {
     var res = (
             cs~load_msg_addr(),
             cs~load_ref(),
-            cs~load_dict(),
+            cs~load_maybe_ref(),
             cs~load_ref()
     );
     cs.end_parse();
@@ -242,7 +248,7 @@ cell pack_item_state(slice owner_address, cell content, cell auction, cell royal
     return begin_cell()
             .store_slice(owner_address)
             .store_ref(content)
-            .store_dict(auction)
+            .store_maybe_ref(auction)
             .store_ref(royalty_params)
             .end_cell();
 }
@@ -310,7 +316,7 @@ _ unpack_signed_cmd(slice cs) inline {
     return (
             cs~load_bits(512), ;; signature
             slice_hash(cs), ;; hash
-            cs~load_int(32), ;; subwallet_id
+            cs~load_uint(32), ;; subwallet_id
             cs~load_uint(32), ;; valid_since
             cs~load_uint(32), ;; valid_till
             cs ;; cmd
@@ -392,9 +398,6 @@ cell pack_auction_state(cell last_bid, int min_bid, int end_time) inline {
 }
 
 cell pack_auction(cell state, cell config) inline {
-    if (null?(state)) {
-        return null();
-    }
     return begin_cell()
             .store_ref(state)
             .store_ref(config)
@@ -406,7 +409,7 @@ cell pack_auction(cell state, cell config) inline {
             cs~load_uint(64),
             cs~load_msg_addr(),
             cs~load_msg_addr(),
-            cs~load_dict(),
+            cs~load_maybe_ref(),
             cs~load_grams(),
             cs
     );

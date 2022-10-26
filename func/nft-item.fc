@@ -1,7 +1,5 @@
-int min_tons_for_storage() asm "1000000000 PUSHINT"; ;; 1 TON
-
 int send_money(int my_balance, slice address, int value) impure {
-    int amount_to_send = min(my_balance - min_tons_for_storage(), value);
+    int amount_to_send = min(my_balance - min_tons_for_storage, value);
     if (amount_to_send > 0) {
         send_msg(address, amount_to_send, op::fill_up, cur_lt(), null(), 2); ;; ignore errors
         my_balance -= amount_to_send;
@@ -32,7 +30,7 @@ int send_money(int my_balance, slice address, int value) impure {
             begin_cell()
                     .store_slice(owner)
                     .store_int(0, 1)
-                    .store_int(op::teleitem_bid_info, 32)
+                    .store_uint(op::teleitem_bid_info, 32)
                     .store_grams(bid)
                     .store_uint(bid_ts, 32),
             1); ;; paying fees, revert on errors
@@ -48,7 +46,7 @@ int send_money(int my_balance, slice address, int value) impure {
     return (my_balance, bidder_address, null());
 }
 
-cell process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell auction) impure {
+(int, cell) process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell auction) impure {
     (cell auction_state, cell auction_config) = unpack_auction(auction);
     (cell old_last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
     throw_if(err::too_small_stake, new_bid < min_bid);
@@ -56,24 +54,28 @@ cell process_new_bid(int my_balance, slice new_bid_address, int new_bid, cell au
     cell new_last_bid = pack_last_bid(new_bid_address, new_bid, now());
     int new_end_time = max(end_time, now() + min_extend_time);
     if ((max_bid > 0) & (new_bid >= max_bid)) {
+        ;; for maybe_end_auction
         new_end_time = 0;
     }
     ;; step is at least GR$1
-    int new_min_bid = max(new_bid + 1000000000, (new_bid * (100 + min_bid_step) + 99) / 100);
-    if (~ cell_null?(old_last_bid)) {
+    int new_min_bid = max(new_bid + one_ton, (new_bid * (100 + min_bid_step) + 99) / 100);
+    ifnot (cell_null?(old_last_bid)) {
         (slice old_bidder_address, int old_bid, _) = unpack_last_bid(old_last_bid);
-        int to_send = min(my_balance - min_tons_for_storage(), old_bid);
+        int to_send = min(my_balance - min_tons_for_storage, old_bid);
         if (to_send > 0) {
             send_msg(old_bidder_address, to_send, op::outbid_notification, cur_lt(), null(), 1);
+            my_balance -= to_send;
         }
     }
     cell new_auction_state = pack_auction_state(new_last_bid, new_min_bid, new_end_time);
-    return pack_auction(new_auction_state, auction_config);
+    return (my_balance, pack_auction(new_auction_state, auction_config));
 }
 
 cell prepare_auction(cell auction_config) {
     (slice beneficiary_address, int initial_min_bid, int max_bid, int min_bid_step, int min_extend_time, int duration) = unpack_auction_config(auction_config);
-    if ((initial_min_bid < 2 * min_tons_for_storage()) | ((max_bid != 0) & (max_bid < initial_min_bid)) |
+    ;; check beneficiary address
+    parse_std_addr(beneficiary_address);
+    if ((initial_min_bid < 2 * min_tons_for_storage) | ((max_bid != 0) & (max_bid < initial_min_bid)) |
             (min_bid_step <= 0) | (min_extend_time > 60 * 60 * 24 * 7) | (duration > 60 * 60 * 24 * 365)) {
         return null();
     }
@@ -88,7 +90,7 @@ cell deploy_item(int my_balance, slice msg) {
     if (cell_null?(auction)) {
         return null();
     }
-    cell new_auction = process_new_bid(my_balance, bidder_address, bid, auction);
+    (my_balance, cell new_auction) = process_new_bid(my_balance, bidder_address, bid, auction);
     (my_balance, slice owner, new_auction) = maybe_end_auction(my_balance, zero_address(), new_auction, royalty_params, 0);
     cell content = pack_item_content(nft_content, null(), token_info);
     return pack_item_state(owner, content, new_auction, royalty_params);
@@ -101,7 +103,7 @@ slice transfer_ownership(int my_balance, slice owner_address, slice in_msg_body,
 
     force_chain(new_owner_address);
 
-    int rest_amount = my_balance - min_tons_for_storage();
+    int rest_amount = my_balance - min_tons_for_storage;
     if (forward_amount) {
         rest_amount -= (forward_amount + fwd_fees);
     }
@@ -151,9 +153,9 @@ cell change_dns_record(cell dns, slice in_msg_body) {
 
     cs~load_msg_addr(); ;; skip dst
     cs~load_grams(); ;; skip value
-    cs~skip_bits(1); ;; skip extracurrency collection
+    cs~load_maybe_ref(); ;; skip extracurrency collection
     cs~load_grams(); ;; skip ihr_fee
-    int fwd_fee = cs~load_grams(); ;; we use message fwd_fee for estimation of forward_payload costs
+    int fwd_fee = muldiv(cs~load_grams(), 3, 2); ;; we use message fwd_:fee for estimation of forward_payload costs
 
     int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
 
@@ -164,7 +166,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         throw_unless(err::forbidden_not_deploy, op == op::teleitem_msg_deploy);
         if (cell_null?(state)) {
             cell new_state = deploy_item(my_balance, in_msg_body);
-            if (~ cell_null?(new_state)) {
+            ifnot (cell_null?(new_state)) {
                 return save_item_data(config, new_state);
             }
         }
@@ -175,24 +177,33 @@ cell change_dns_record(cell dns, slice in_msg_body) {
 
     throw_if(err::uninited, cell_null?(state));
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
-    if (~ cell_null?(auction)) {
-        ;; sender do not pay for auction with its message
-        my_balance -= msg_value;
-        (my_balance, owner_address, auction) = maybe_end_auction(my_balance, owner_address, auction, royalty_params, 0);
-        cell new_state = pack_item_state(owner_address, content, auction, royalty_params);
-        save_item_data(config, new_state);
-        my_balance += msg_value;
-    }
 
     if (op == op::get_royalty_params) {
         int query_id = in_msg_body~load_uint(64);
         send_msg(sender_address, 0, op::report_royalty_params, query_id, begin_cell().store_slice(royalty_params.begin_parse()), 64); ;; carry all the remaining value of the inbound message
         return ();
     }
+
     if (op == op::nft_cmd_get_static_data) {
         int query_id = in_msg_body~load_uint(64);
         send_msg(sender_address, 0, op::report_static_data, query_id, begin_cell().store_uint(index, 256).store_slice(collection_address), 64); ;; carry all the remaining value of the inbound message
         return ();
+    }
+
+    int is_topup = (op == 0) & equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0);
+    if (is_topup) {
+        return ();
+    }
+
+    ifnot (cell_null?(auction)) {
+        ;; sender do not pay for auction with its message
+        my_balance -= msg_value;
+        (my_balance, owner_address, auction) = maybe_end_auction(my_balance, owner_address, auction, royalty_params, 0);
+        if (cell_null?(auction)) {
+            cell new_state = pack_item_state(owner_address, content, auction, royalty_params);
+            save_item_data(config, new_state);
+        }
+        my_balance += msg_value;
     }
 
     if (op == op::teleitem_cancel_auction) {
@@ -209,23 +220,21 @@ cell change_dns_record(cell dns, slice in_msg_body) {
         return save_item_data(config, new_state);
     }
 
-    if (~ cell_null?(auction)) {
+    ifnot (cell_null?(auction)) {
         throw_unless(err::forbidden_not_stake, op == 0);
-        auction = process_new_bid(my_balance, sender_address, msg_value, auction);
+        (my_balance, auction) = process_new_bid(my_balance, sender_address, msg_value, auction);
         (my_balance, owner_address, auction) = maybe_end_auction(my_balance, owner_address, auction, royalty_params, 0);
         cell new_state = pack_item_state(owner_address, content, auction, royalty_params);
         return save_item_data(config, new_state);
     }
 
     if (op == 0) {
-        int is_topup = equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0);
-        throw_unless(err::forbidden_topup, is_topup | equal_slices(sender_address, owner_address)); ;; only owner can fill-up balance, prevent coins lost right after the auction
+        throw_unless(err::forbidden_topup, equal_slices(sender_address, owner_address)); ;; only owner can fill-up balance, prevent coins lost right after the auction
         ;; if owner send bid right after auction he can restore it by transfer response message
         return ();
     }
 
     if (op == op::teleitem_start_auction) {
-        throw_unless(err::auction_already_started, cell_null?(auction));
         throw_unless(err::forbidden_auction, equal_slices(sender_address, owner_address));
         int query_id = in_msg_body~load_uint(64);
         cell new_auction_config = in_msg_body~load_ref();
@@ -246,12 +255,13 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     }
 
     if (op == op::change_dns_record) { ;; change dns record
+        int query_id = in_msg_body~load_uint(64);
         throw_unless(err::forbidden_change_dns, equal_slices(sender_address, owner_address));
         (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
         cell new_dns = change_dns_record(dns, in_msg_body);
         cell new_content = pack_item_content(nft_content, new_dns, token_info);
         cell new_state = pack_item_state(owner_address, new_content, auction, royalty_params);
-        send_msg(sender_address, 0, op::teleitem_ok, cur_lt(), null(), 64); ;; carry all the remaining value of the inbound message
+        send_msg(sender_address, 0, op::teleitem_ok, query_id, null(), 64); ;; carry all the remaining value of the inbound message
         return save_item_data(config, new_state);
     }
     throw(err::unknown_op);
@@ -281,22 +291,6 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     return (-1, item_index, collection_address, owner_address, nft_content);
 }
 
-(slice, int, int) get_auction_info() method_id {
-    (cell config, cell state) = unpack_item_data();
-    (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
-    if (cell_null?(auction)) {
-        return (null(), 0, 0);
-    }
-    (cell auction_state, cell auction_config) = unpack_auction(auction);
-    (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
-    slice bidder_address = null();
-    int bid = 0;
-    if (cell_null?(last_bid)) {
-        (bidder_address, bid, _) = unpack_last_bid(last_bid);
-    }
-    return (bidder_address, bid, end_time);
-}
-
 slice get_full_domain() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -313,10 +307,6 @@ slice get_telemint_token_name() method_id {
     return token_name;
 }
 
-slice get_username() method_id {
-    return get_telemint_token_name();
-}
-
 (slice, int, int, int, int) get_telemint_auction_state() method_id {
     (cell config, cell state) = unpack_item_data();
     (slice owner_address, cell content, cell auction, cell royalty_params) = unpack_item_state(state);
@@ -324,12 +314,11 @@ slice get_username() method_id {
     (cell auction_state, cell auction_config) = unpack_auction(auction);
     (cell last_bid, int min_bid, int end_time) = unpack_auction_state(auction_state);
     (slice bidder_address, int bid, int bid_ts) = (null(), 0, 0);
-    if (~ cell_null?(last_bid)) {
+    ifnot (cell_null?(last_bid)) {
         (bidder_address, bid, bid_ts) = unpack_last_bid(last_bid);
     }
     return (bidder_address, bid, bid_ts, min_bid, end_time);
 }
-
 
 (slice, int, int, int, int, int) get_telemint_auction_config() method_id {
     (cell config, cell state) = unpack_item_data();
@@ -357,10 +346,10 @@ slice get_username() method_id {
     (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
 
     int subdomain_bits = slice_bits(subdomain);
-    throw_unless(70, mod(subdomain_bits, 8) == 0);
+    throw_unless(err::bad_subdomain_length, subdomain_bits % 8 == 0);
 
     int starts_with_zero_byte = subdomain.preload_int(8) == 0;
-    throw_unless(413, starts_with_zero_byte);
+    throw_unless(err::no_first_zero_byte, starts_with_zero_byte);
 
     if (subdomain_bits > 8) { ;; more than "." requested
         category = "dns_next_resolver"H;

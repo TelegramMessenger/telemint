@@ -7,7 +7,6 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_
     throw_unless(err::not_yet_valid_signature, valid_since < ts);
     throw_unless(err::expired_signature, ts < valid_till);
     return cmd;
-
 }
 
 () deploy_item(slice sender_address, int bid, cell item_code, slice cmd, slice full_domain, cell default_royalty_params) impure {
@@ -16,7 +15,7 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_
     throw_unless(err::not_enough_funds, bid >= initial_min_bid);
     int item_index = string_hash(token_name);
     cell state_init = pack_item_state_init(item_index, item_code);
-    slice item_address = calculate_address(workchain(), state_init);
+    slice item_address = calculate_address(workchain, state_init);
     if (null?(royalty)) {
         royalty = default_royalty_params;
     }
@@ -34,16 +33,16 @@ _ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_
         return ();
     }
     slice sender_address = cs~load_msg_addr();
-    
+
     int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
 
     if (op == 0) { ;; regular money transfer
         ;; NB: it is not possible to recover any money transferred to this account
         ;; so we return back all transfers except ones with comment #topup in it
         throw_unless(err::wrong_topup_comment, equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0));
-
         return ();
     }
+
     throw_unless(err::unknown_op, op == op::telemint_msg_deploy);
 
     var (_, subwallet_id, public_key, _, item_code, full_domain, default_royalty_params) = unpack_collection_data();
@@ -73,12 +72,7 @@ slice get_full_domain() method_id {
 slice get_nft_address_by_index(int index) method_id {
     var (_, _, _, _, item_code, _, _) = unpack_collection_data();
     cell state_init = pack_item_state_init(index, item_code);
-    return calculate_address(workchain(), state_init);
-}
-(int, int, slice) royalty_params() method_id {
-    var (_, _, _, _, _, _, royalty_params) = unpack_collection_data();
-    (int numerator, int denominator, slice destination) = unpack_nft_royalty_params(royalty_params);
-    return (numerator, denominator, destination);
+    return calculate_address(workchain, state_init);
 }
 
 cell get_nft_content(int index, cell individual_nft_content) method_id {
@@ -86,18 +80,14 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
 }
 
 (int, cell) dnsresolve(slice subdomain, int category) method_id {
-    throw_unless(70, mod(slice_bits(subdomain), 8) == 0);
+    throw_unless(err::bad_subdomain_length, slice_bits(subdomain) % 8 == 0);
 
-    int starts_with_zero_byte = subdomain.preload_int(8) == 0;
+    int skipped_bits = subdomain~skip_first_zero_byte?() & 8;
 
-    if (starts_with_zero_byte & (slice_bits(subdomain) == 8)) { ;; "." requested
-        return (8, null()); ;; resolved but no dns-records
+    if (skipped_bits & subdomain.slice_empty?()) { ;; "." requested
+        return (skipped_bits, null()); ;; resolved but no dns-records
     }
-    int skipped_bits = 0;
-    if (starts_with_zero_byte) {
-        subdomain~load_uint(8);
-        skipped_bits = 8;
-    }
+
     int top_subdomain_bits = get_top_domain_bits(subdomain);
     slice top_subdomain = subdomain~load_bits(top_subdomain_bits);
     int item_index = string_hash(top_subdomain);
