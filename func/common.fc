@@ -50,7 +50,7 @@ const int err::forbidden_auction = 220;
 const int err::already_has_stakes = 221;
 const int err::auction_already_started = 222;
 const int err::invalid_auction_config = 223;
-const int err::incorrect_workchain = 333;
+const int err::invalid_workchain = 333;
 const int err::no_first_zero_byte = 413;
 
 const int min_tons_for_storage = one_ton;
