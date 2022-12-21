@@ -1,0 +1,107 @@
+_ unwrap_signed_cmd(slice signed_cmd, int public_key, int subwallet_id, int msg_value) impure {
+    (slice signature, int hash, int got_subwallet_id, int valid_since, int valid_till, slice cmd)
+            = unpack_signed_cmd(signed_cmd);
+    throw_unless(err::invalid_signature, check_signature(hash, signature, public_key));
+    throw_unless(err::wrong_subwallet_id, subwallet_id == got_subwallet_id);
+    int ts = now();
+    throw_unless(err::not_yet_valid_signature, valid_since < ts);
+    throw_unless(err::expired_signature, ts < valid_till);
+    return cmd;
+}
+
+_ unpack_deploy_msg_v2(slice cs) inline {
+    var res = (
+            cs~load_text(), ;; token_name
+            cs~load_ref(), ;; content
+            cs~load_ref(), ;; auction_config
+            cs~load_maybe_ref(), ;; royalty
+            cs~load_maybe_ref() ;; restrictions
+    );
+    cs.end_parse();
+    return res;
+}
+const int err::invalid_sender_address = 224;
+const int op::telemint_msg_deploy_v2 = 0x4637289b;
+slice check_restrictions(cell restrictions, slice sender_address) impure inline {
+  if (~ cell_null?(restrictions)) {
+     slice cs = restrictions.begin_parse();
+     int has_force_sender_address = cs~load_uint(1);
+     if (has_force_sender_address) {
+        slice force_sender_address = cs~load_msg_addr();
+        throw_unless(err::invalid_sender_address, equal_slices(force_sender_address, sender_address));
+     }
+     int has_rewrite_sender_address = cs~load_uint(1);
+     if (has_rewrite_sender_address) {
+        slice rewrite_sender_address = cs~load_msg_addr();
+        sender_address = rewrite_sender_address;
+     }
+  }
+  return sender_address;
+}
+
+() deploy_item(slice sender_address, int bid, cell item_code, slice cmd, slice full_domain, cell default_royalty_params) impure {
+    var (token_name, content, auction_config, royalty, restrictions) = unpack_deploy_msg_v2(cmd);
+    sender_address = check_restrictions(restrictions, sender_address);
+
+    (slice beneficiary_address, int initial_min_bid, int max_bid, int min_bid_step, int min_extend_time, _) = unpack_auction_config(auction_config);
+    throw_unless(err::not_enough_funds, bid >= initial_min_bid);
+    int item_index = string_hash(token_name);
+    cell state_init = pack_item_state_init(item_index, item_code);
+    slice item_address = calculate_address(workchain, state_init);
+    if (null?(royalty)) {
+        royalty = default_royalty_params;
+    }
+    cell token_info = pack_token_info(token_name, full_domain);
+    cell deploy_msg = pack_teleitem_msg_deploy(sender_address, bid, token_info, content, auction_config, royalty);
+    cell msg = pack_init_int_message(item_address, state_init, deploy_msg);
+    send_raw_message(msg, 64); ;; carry all the remaining value of the inbound message, fee deducted from amount
+}
+
+() recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) { ;; ignore all bounced messages
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+
+    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
+
+    if (op == 0) { ;; regular money transfer
+        ;; NB: it is not possible to recover any money transferred to this account
+        ;; so we return back all transfers except ones with comment #topup in it
+        throw_unless(err::wrong_topup_comment, equal_slices(in_msg_body, "#topup") & (in_msg_body.slice_refs() == 0));
+        return ();
+    }
+
+    throw_unless(err::unknown_op, op == op::telemint_msg_deploy_v2);
+
+    var (_, subwallet_id, public_key, _, item_code, full_domain, default_royalty_params) = unpack_collection_data();
+    var cmd = unwrap_signed_cmd(in_msg_body, public_key, subwallet_id, msg_value);
+    deploy_item(sender_address, msg_value, item_code, cmd, full_domain, default_royalty_params);
+}
+
+() recv_external(slice in_msg) impure {
+    var (touched, subwallet_id, public_key, content, item_code, full_domain, royalty_params) = unpack_collection_data();
+    throw_if(err::forbidden_touch, touched);
+    accept_message();
+    save_collection_data(true, subwallet_id, public_key, content, item_code, full_domain, royalty_params);
+}
+
+;; Get methods
+
+(int, cell, slice) get_collection_data() method_id {
+    var (_, _, _, content, _, _, _) = unpack_collection_data();
+    return (-1, content, zero_address());
+}
+
+slice get_nft_address_by_index(int index) method_id {
+    var (_, _, _, _, item_code, _, _) = unpack_collection_data();
+    cell state_init = pack_item_state_init(index, item_code);
+    return calculate_address(workchain, state_init);
+}
+
+cell get_nft_content(int index, cell individual_nft_content) method_id {
+    return individual_nft_content;
+}

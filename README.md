@@ -12,6 +12,12 @@ NftItem source files: [nft-item.fc](func/nft-item.fc), [common.fc](func/common.f
 
 One may also look at the [tlb decription](telemint.tlb) of internal messages and smart contract data.
 
+There are also two additional smart contracts in the repository: NftCollectionNoDns and NftItemNoDns. They do not support DNS and allow to set additional restrictions on first bid.
+
+NftCollectionNoDns source files: [nft-collection-no-dns.fc](func/nft-collection-no-dns.fc), [common.fc](func/common.fc) [stdlib.fc](func/stdlib.fc).
+
+NftItemNoDns source files: [nft-item-no-dns.fc](func/nft-item-no-dns.fc), [common.fc](func/common.fc) [stdlib.fc](func/stdlib.fc).
+
 ### NftCollection
 
 #### Internal messages

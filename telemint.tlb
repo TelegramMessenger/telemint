@@ -48,3 +48,8 @@ telemint_data$_ touched:Bool subwallet_id:uint32 public_key:bits256 collection_c
 telemint_unsigned_deploy$_ subwallet_id:uint32 valid_since:uint32 valid_till:uint32 token_name:TelemintText
   content:^Cell auction_config:^TeleitemAuctionConfig royalty_params:(Maybe ^NftRoyaltyParams) = TelemintUnsignedDeploy;
 telemint_msg_deploy#4637289a  sig:bits512 msg:TelemintUnsignedDeploy = TelemintMsg;
+
+telemint_restrictions$_ force_sender_address:(Maybe MsgAddressInt) rewrite_sender_address:(Maybe MsgAddressInt) = TelemintRestrictions;
+telemint_unsigned_deploy_v2$_ subwallet_id:uint32 valid_since:uint32 valid_till:uint32 token_name:TelemintText
+  content:^Cell auction_config:^TeleitemAuctionConfig royalty_params:(Maybe ^NftRoyaltyParams) restrictions:(Maybe ^TelemintRestrictions) = TelemintUnsignedDeployV2;
+telemint_msg_deploy_v2#4637289b  sig:bits512 msg:TelemintUnsignedDeployV2 = TelemintMsgV2;
