@@ -276,9 +276,7 @@ cell change_dns_record(cell dns, slice in_msg_body) {
     return save_item_data(config, new_state);
 }
 
-;;
 ;;  GET Methods
-;;
 
 (int, int, slice, slice, cell) get_nft_data() method_id {
     (cell config, cell state) = unpack_item_data();
@@ -346,7 +344,7 @@ slice get_telemint_token_name() method_id {
     (cell nft_content, cell dns, cell token_info) = unpack_item_content(content);
 
     int subdomain_bits = slice_bits(subdomain);
-    throw_unless(err::bad_subdomain_length, subdomain_bits % 8 == 0);
+    throw_unless(err::invalid_subdomain_length, subdomain_bits % 8 == 0);
 
     int starts_with_zero_byte = subdomain.preload_int(8) == 0;
     throw_unless(err::no_first_zero_byte, starts_with_zero_byte);

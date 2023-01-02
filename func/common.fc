@@ -27,6 +27,7 @@ const int op::report_static_data = 0x8b771735;
 const int op::get_royalty_params = 0x693d3950;
 const int op::report_royalty_params = 0xa8cb00ad;
 
+const int err::invalid_subdomain_length = 70;
 const int err::invalid_length = 201;
 const int err::invalid_signature = 202;
 const int err::wrong_subwallet_id = 203;
@@ -49,9 +50,8 @@ const int err::forbidden_auction = 220;
 const int err::already_has_stakes = 221;
 const int err::auction_already_started = 222;
 const int err::invalid_auction_config = 223;
-const int err::incorrect_workchain = 333;
+const int err::invalid_workchain = 333;
 const int err::no_first_zero_byte = 413;
-const int err::bad_subdomain_length = 70;
 
 const int min_tons_for_storage = one_ton;
 const int workchain = 0;
@@ -64,7 +64,7 @@ slice zero_address() asm "b{00} PUSHSLICE";
 
 () force_chain(slice addr) impure inline {
     (int wc, _) = parse_std_addr(addr);
-    throw_unless(err::incorrect_workchain, wc == workchain);
+    throw_unless(err::invalid_workchain, wc == workchain);
 }
 
 
@@ -76,7 +76,7 @@ int get_top_domain_bits(slice domain) inline {
         i += 8;
         char = domain~load_uint(8); ;; we do not check domain.length because it MUST contains \0 character
     }
-    throw_unless(201, i); ;; should not start with \0
+    throw_unless(err::invalid_length, i); ;; should not start with \0
     return i;
 }
 
@@ -130,7 +130,7 @@ cell pack_init_int_message(slice dest, cell state_init, cell body) inline {
     return begin_cell()
             .store_uint(0x18, 6) ;; 011000 tag=0, ihr_disabled=1, allow_bounces=1, bounced=0, add_none
             .store_slice(dest)
-            .store_grams(0) ;; grams
+            .store_grams(0)
             .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
             .store_ref(state_init)
             .store_ref(body)
@@ -288,7 +288,7 @@ cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell con
     var cs = get_data().begin_parse();
     var res = (
             cs~load_int(1), ;; touched
-            cs~load_uint(32), ;; subwallet_id
+            cs~load_uint(64), ;; subwallet_id
             cs~load_uint(256), ;; owner_key
             cs~load_ref(), ;; content
             cs~load_ref(), ;; item_code
@@ -302,7 +302,7 @@ cell pack_teleitem_msg_deploy(slice sender_address, int bid, cell info, cell con
 _ save_collection_data(int touched, int subwallet_id, int owner_key, cell content, cell item_code, slice full_domain, cell royalty_params) impure inline {
     cell data = begin_cell()
             .store_int(touched, 1)
-            .store_uint(subwallet_id, 32)
+            .store_uint(subwallet_id, 64)
             .store_uint(owner_key, 256)
             .store_ref(content)
             .store_ref(item_code)
@@ -316,7 +316,7 @@ _ unpack_signed_cmd(slice cs) inline {
     return (
             cs~load_bits(512), ;; signature
             slice_hash(cs), ;; hash
-            cs~load_uint(32), ;; subwallet_id
+            cs~load_uint(64), ;; subwallet_id
             cs~load_uint(32), ;; valid_since
             cs~load_uint(32), ;; valid_till
             cs ;; cmd
