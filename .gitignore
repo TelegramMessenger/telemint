@@ -1,0 +1,6 @@
+.idea
+sources.zip
+/node_modules
+/build
+/tags
+/package-lock.json
