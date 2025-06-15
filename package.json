@@ -1,0 +1,17 @@
+{
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {
+    "bn.js": "^5.2.0",
+    "ton": "^12.1.5",
+    "ton-compiler": "^0.9.0",
+    "ton-contract-executor": "../ton-contract-executor"
+  },
+  "devDependencies": {
+    "jest": "^29.2.2",
+    "ts-jest": "^29.0.3",
+    "@types/bn.js": "^5.1.0",
+    "typescript": "^4.8.4"
+  }
+}
