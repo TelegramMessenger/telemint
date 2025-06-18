@@ -945,7 +945,7 @@ describe('NFT', () => {
                 duration: getRandomInt(1, 3600) * 60,
                 min_extend_time:getRandomInt(10, 1800),
                 benificiary: testAddress,
-                min_bid_step: BigInt(getRandomInt(1, 100))
+                min_bid_step: defaultAuctionConfig.min_bid_step // BigInt(getRandomInt(1, 100))
             }
 
             const res = await regularItem.sendStartAuction(deployer.getSender(), newConfig);
