@@ -1,5 +1,5 @@
 import { Blockchain, SandboxContract, TreasuryContract, BlockchainSnapshot, SendMessageResult } from '@ton/sandbox';
-import { Cell, toNano, beginCell, Transaction, ExternalAddress } from '@ton/core';
+import { Cell, toNano, beginCell, Transaction, ExternalAddress, Address } from '@ton/core';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 import { randomAddress, getRandomInt } from './utils';
@@ -45,6 +45,7 @@ describe('NFT', () => {
     const min_storage  = toNano('0.03');
 
     let nftItemByName: (name: string) => Promise<SandboxContract<NftItem>>;
+    let getContractData:(address: Address) => Promise<Cell>;
 
     let curTime: () => number;
     let computeNextBid: (cur_bid: bigint, bid_step: bigint) => bigint;
@@ -125,6 +126,17 @@ describe('NFT', () => {
                 )
             );
         }
+        getContractData = async (address: Address) => {
+          const smc = await blockchain.getContract(address);
+          if(!smc.account.account)
+            throw("Account not found")
+          if(smc.account.account.storage.state.type != "active" )
+            throw("Atempting to get data on inactive account");
+          if(!smc.account.account.storage.state.state.data)
+            throw("Data is not present");
+          return smc.account.account.storage.state.state.data
+        }
+
 
         curTime = () => {
             return blockchain.now ?? Math.floor(Date.now() / 1000);
@@ -261,6 +273,52 @@ describe('NFT', () => {
         expect(royaltyParams.royalty_dst).toEqualAddress(newRoyalty.address);
         expect(royaltyParams.base).toEqual(BigInt(newRoyalty.royalty_base));
         expect(royaltyParams.factor).toEqual(BigInt(newRoyalty.royalty_factor));
+    });
+    it('should return funds if item is already deployed', async () => {
+        await blockchain.loadFrom(itemsDeployedState);
+
+        const bidValue = defaultAuctionConfig.min_bid + (BigInt(getRandomInt(1, 10)) * toNano('0.1'))
+        const itemContentCell = nftContentToCell({type: 'offchain', uri: `other_nft.json`});
+        const token_name = "Test item";
+        const nftItem = await nftItemByName(token_name);
+
+        const dataBefore = await getContractData(nftItem.address);
+
+        const res = await nftCollection.sendDeployItem(deployer.getSender(), {
+            token_name,
+            actuion_config: defaultAuctionConfig,
+            content: itemContentCell
+        },
+        {
+            privateKey: keyPair.secretKey,
+            valid_since: blockchain.now! - 1,
+            valid_till: blockchain.now! + 100,
+            subwallet_id
+        }, bidValue);
+
+        const itemDeployTx = findTransactionRequired(res.transactions, {
+            on: nftItem.address,
+            from: nftCollection.address,
+            aborted: false,
+            outMessagesCount: 1,
+        });
+
+        const inMsg = itemDeployTx.inMessage!;
+
+        if(inMsg.info.type !== 'internal') {
+            throw new Error("No way!");
+        }
+
+        const gasFees = computedGeneric(itemDeployTx);
+
+        expect(res.transactions).toHaveTransaction({
+            on: deployer.address,
+            op: Op.teleitem_return_bid,
+            value: inMsg.info.value.coins - gasFees.gasFees - msgPrices.lumpPrice
+        });
+
+        const dataAfter = await getContractData(nftItem.address);
+        expect(dataBefore).toEqualCell(dataAfter);
     });
     it.skip('collection should not allow to deploy item with malformed royalty', async () => {
         const bidValue = defaultAuctionConfig.min_bid + (BigInt(getRandomInt(1, 10)) * toNano('0.1'))
