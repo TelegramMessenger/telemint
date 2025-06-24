@@ -1011,7 +1011,7 @@ describe('NFT', () => {
                 min_bid_step: defaultAuctionConfig.min_bid_step // BigInt(getRandomInt(1, 100))
             }
 
-            const res = await regularItem.sendStartAuction(deployer.getSender(), newConfig);
+            const res = await assertStartAuction(regularItem, deployer, newConfig, 0);
 
             const startTx = findTransactionRequired(res.transactions, {
                 on: regularItem.address,
@@ -1030,6 +1030,48 @@ describe('NFT', () => {
             expect(auctionAfter.benificiary).toEqualAddress(newConfig.benificiary);
 
             ownerStartedAuction = blockchain.snapshot();
+        });
+        it('owner should get excess if startAuction is passed with queryId != 0', async () => {
+            await blockchain.loadFrom(initialAuctionDone);
+            const itemData = await regularItem.getNftData();
+            const queryId  = BigInt(getRandomInt(1, 100_000));
+
+            expect(itemData.owner).toEqualAddress(deployer.address);
+            const testAddress = randomAddress(0);
+
+            await assertAuctionConfigIsEmpty(regularItem, true);
+
+            const minBid = BigInt(getRandomInt(2, 5)) * min_storage;
+
+            const newConfig: AuctionParameters = {
+                min_bid: minBid,
+                max_bid: BigInt(getRandomInt(100, 10000)) * toNano('1'),
+                duration: getRandomInt(1, 3600) * 60,
+                min_extend_time:getRandomInt(10, 1800),
+                benificiary: testAddress,
+                min_bid_step: defaultAuctionConfig.min_bid_step // BigInt(getRandomInt(1, 100))
+            }
+
+            const res = await assertStartAuction(regularItem, deployer, newConfig, 0, queryId);
+
+            const startTx = findTransactionRequired(res.transactions, {
+                on: regularItem.address,
+                op: Op.teleitem_start_auction,
+                aborted: false
+            });
+            reportGas("Auction start with excess", startTx);
+
+            const auctionAfter = await regularItem.getAuctionConfig();
+
+            expect(auctionAfter.duration).toEqual(newConfig.duration);
+            expect(auctionAfter.max_bid).toEqual(newConfig.max_bid);
+            expect(auctionAfter.initial_bid).toEqual(newConfig.min_bid);
+            expect(auctionAfter.min_bid_step).toEqual(newConfig.min_bid_step);
+            expect(auctionAfter.extend_time).toEqual(newConfig.min_extend_time);
+            expect(auctionAfter.benificiary).toEqualAddress(newConfig.benificiary);
+
+            ownerStartedAuction = blockchain.snapshot();
+
         });
         it('If no bids were made, owner should be able to get item back on time expiration', async () => {
             await blockchain.loadFrom(ownerStartedAuction);
