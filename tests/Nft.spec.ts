@@ -50,6 +50,7 @@ describe('NFT', () => {
     let curTime: () => number;
     let computeNextBid: (cur_bid: bigint, bid_step: bigint) => bigint;
     let assertAuctionConfigIsEmpty: (item: SandboxContract<NftItem>, isEmpty: boolean) => Promise<void>;
+    let assertStartAuction: (item: SandboxContract<NftItem>, from: SandboxContract<TreasuryContract>, config: AuctionParameters, exp_status: number, queryId?: bigint) => Promise<SendMessageResult>;
 
     beforeAll(async () => {
         collection_code = await compile('NftCollection');
@@ -159,12 +160,53 @@ describe('NFT', () => {
                 expect(auctionConfig.extend_time).toBe(0);
             } else {
                 expect(auctionConfig.benificiary).not.toBeNull();
-                expect(auctionConfig.max_bid).not.toBe(0n);
+                // max_bid can be 0
+                // expect(auctionConfig.max_bid).not.toBe(0n);
                 expect(auctionConfig.initial_bid).not.toBe(0n);
                 expect(auctionConfig.duration).not.toBe(0);
                 expect(auctionConfig.extend_time).not.toBe(0);
             }
         };
+
+        assertStartAuction = async (item, from, config, exp_status, queryId = 0n) => {
+            const msgValue = toNano('0.05');
+            await assertAuctionConfigIsEmpty(item, true);
+
+            const res = await item.sendStartAuction(from.getSender(), config, msgValue, queryId);
+
+            if(exp_status == 0) {
+                const startTx = findTransactionRequired(res.transactions, {
+                    on: item.address,
+                    from: from.address,
+                    op: Op.teleitem_start_auction,
+                    aborted: false,
+                    outMessagesCount: queryId != 0n ? 1 : 0
+                });
+
+                if(queryId != 0n) {
+                    const gas = computedGeneric(startTx);
+                    expect(res.transactions).toHaveTransaction({
+                        on: from.address,
+                        from: item.address,
+                        op: Op.teleitem_ok,
+                        value: msgValue - gas.gasFees - msgPrices.lumpPrice
+                    });
+                }
+
+                await assertAuctionConfigIsEmpty(item, false);
+            } else {
+                expect(res.transactions).toHaveTransaction({
+                    on: item.address,
+                    from: from.address,
+                    op: Op.teleitem_start_auction,
+                    aborted: true,
+                    exitCode: exp_status
+                });
+                await assertAuctionConfigIsEmpty(item, true);
+            }
+
+            return res;
+        }
 
         initialState = blockchain.snapshot();
     });
@@ -1041,14 +1083,30 @@ describe('NFT', () => {
 
             // Minimal value from contract
             const minValue = min_storage * 2n;
+
+            let res = await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, min_bid: minValue - 1n}, Errors.invalid_auction_config);
+
+            res = await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, min_bid: minValue}, 0);
+        });
+
+        it('auction extend time should be limited by 1 week', async () => {
+            const week = 3600 * 24 * 7;
+            await blockchain.loadFrom(initialAuctionDone);
+            await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, min_extend_time: week + 1}, Errors.invalid_auction_config);
+
+            await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, min_extend_time: week}, 0);
+        });
+        it('auction duration time should be limited by year', async () => {
+            const year = 3600 * 24 * 365;
+            await blockchain.loadFrom(initialAuctionDone);
+            await assertAuctionConfigIsEmpty(regularItem, true);
+            await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, duration: year + 1}, Errors.invalid_auction_config);
             await assertAuctionConfigIsEmpty(regularItem, true);
 
-            let res = await regularItem.sendStartAuction(deployer.getSender(), {...defaultAuctionConfig, min_bid: minValue - 1n});
-            await assertAuctionConfigIsEmpty(regularItem, true);
-
-            res = await regularItem.sendStartAuction(deployer.getSender(), {...defaultAuctionConfig, min_bid: minValue});
+            await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, duration: year}, 0);
             await assertAuctionConfigIsEmpty(regularItem, false);
         });
+
         it('minimal bid value should be enough for auction with expected duration to happen', async () => {
             /**
              * NOTE
@@ -1083,14 +1141,12 @@ describe('NFT', () => {
         it('should only accept auctions with min_bid_step > 0', async () => {
             // Actually it can't be < 0, because it is loaded as unsigned (load_uint(8))
             await blockchain.loadFrom(initialAuctionDone);
-            await assertAuctionConfigIsEmpty(regularItem, true);
 
-            let res = await regularItem.sendStartAuction(deployer.getSender(), {...defaultAuctionConfig, min_bid_step: 0n});
+            let res = await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, min_bid_step: 0n}, Errors.invalid_auction_config);
             await assertAuctionConfigIsEmpty(regularItem, true);
 
             for(let testStep of [1n, 255n, BigInt(getRandomInt(2, 254))]) {
-                res = await regularItem.sendStartAuction(deployer.getSender(), {...defaultAuctionConfig, min_bid_step: testStep});
-                await assertAuctionConfigIsEmpty(regularItem, false);
+                res = await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, min_bid_step: testStep}, 0);
                 await blockchain.loadFrom(initialAuctionDone);
             }
         });
@@ -1121,13 +1177,13 @@ describe('NFT', () => {
                 } while(maxBid == minBid);
 
                 expect(maxBid).toBeLessThan(minBid);
-                await regularItem.sendStartAuction(deployer.getSender(), {...defaultAuctionConfig, min_bid: BigInt(minBid), max_bid: BigInt(maxBid)});
+                await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, min_bid: BigInt(minBid), max_bid: BigInt(maxBid)}, Errors.invalid_auction_config);
                 const auctionConfig = await regularItem.getAuctionConfig();
                 expect(auctionConfig.max_bid).not.toBeLessThan(auctionConfig.initial_bid);
                 await assertAuctionConfigIsEmpty(regularItem, true);
             }
             // But should accept max_bid 0
-            await regularItem.sendStartAuction(deployer.getSender(), {...defaultAuctionConfig, min_bid: BigInt(minBid), max_bid: BigInt(maxBid)});
+            await assertStartAuction(regularItem, deployer, {...defaultAuctionConfig, min_bid: BigInt(minBid), max_bid: 0n}, 0);
         });
         it('owner should not be able to re-start already started auction', async () => {
             await blockchain.loadFrom(ownerStartedAuction);
