@@ -642,44 +642,7 @@ describe('NFT', () => {
                                             .storeRef(testContent)
                                           .endCell());
     });
-    it('item should return royalty parameters', async () => {
-        await blockchain.loadFrom(itemsDeployedState);
-        const msgPrices = getMsgPrices(blockchain.config, 0);
-        const msgValue  = toNano('0.05');
-        const queryId   = getRandomInt(0, 100);
 
-        const res = await regularItem.sendGetRoyaltyParams(deployer.getSender(), msgValue, queryId);
-
-        const getRoyaltyTx = findTransactionRequired(res.transactions, {
-            on: regularItem.address,
-            from: deployer.address,
-            op: Op.get_royalty_params,
-            aborted: false,
-            outMessagesCount: 1
-        });
-
-        const outMsg = getRoyaltyTx.outMessages.get(0)!;
-        if(outMsg.info.type !== 'internal') {
-            throw Error("No way!");
-        }
-
-        reportGas("Report royalty parameters", getRoyaltyTx);
-        const fwdFee       = computeMessageForwardFees(msgPrices, outMsg);
-        const computePhase = computedGeneric(getRoyaltyTx);
-
-        expect(res.transactions).toHaveTransaction({
-            on: deployer.address,
-            from: regularItem.address,
-            value: msgValue - fwdFee.fees.total - computePhase.gasFees, // Should return change
-            body: beginCell()
-                    .storeUint(Op.report_royalty_params, 32)
-                    .storeUint(queryId, 64)
-                    .storeUint(royaltyFactor, 16)
-                    .storeUint(royaltyBase, 16)
-                    .storeAddress(royaltyWallet.address)
-                  .endCell()
-        });
-    });
     });
     describe('Auction', () => {
         let bidsMade: BlockchainSnapshot;
@@ -1427,6 +1390,86 @@ describe('NFT', () => {
 
         // Make sure that 3/2 approach is applicable
         expect(inMsg.info.forwardFee * 3n / 2n).toBeGreaterThanOrEqual(computeMessageForwardFees(msgPrices, inMsg).fees.total);
+    });
+    it('item should return royalty parameters', async () => {
+        for(let testState of [itemsDeployedState, ownerStartedAuction, initialAuctionDone]) {
+            await blockchain.loadFrom(testState);
+            const msgPrices = getMsgPrices(blockchain.config, 0);
+            const msgValue  = toNano('0.05');
+            const queryId   = getRandomInt(0, 100);
+
+            const res = await regularItem.sendGetRoyaltyParams(deployer.getSender(), msgValue, queryId);
+
+            const getRoyaltyTx = findTransactionRequired(res.transactions, {
+                on: regularItem.address,
+                from: deployer.address,
+                op: Op.get_royalty_params,
+                aborted: false,
+                outMessagesCount: 1
+            });
+
+            const outMsg = getRoyaltyTx.outMessages.get(0)!;
+            if(outMsg.info.type !== 'internal') {
+                throw Error("No way!");
+            }
+
+            reportGas("Report royalty parameters", getRoyaltyTx);
+            const fwdFee       = computeMessageForwardFees(msgPrices, outMsg);
+            const computePhase = computedGeneric(getRoyaltyTx);
+
+            expect(res.transactions).toHaveTransaction({
+                on: deployer.address,
+                from: regularItem.address,
+                value: msgValue - fwdFee.fees.total - computePhase.gasFees, // Should return change
+                body: beginCell()
+                        .storeUint(Op.report_royalty_params, 32)
+                        .storeUint(queryId, 64)
+                        .storeUint(royaltyFactor, 16)
+                        .storeUint(royaltyBase, 16)
+                        .storeAddress(royaltyWallet.address)
+                      .endCell()
+            });
+        }
+    });
+    it('item should return static data', async () => {
+        for(let testState of [itemsDeployedState, ownerStartedAuction, initialAuctionDone]) {
+            await blockchain.loadFrom(testState);
+            const msgPrices = getMsgPrices(blockchain.config, 0);
+            const msgValue  = toNano('0.05');
+            const queryId   = getRandomInt(1, 10000);
+
+            const res = await regularItem.sendGetStaticData(deployer.getSender(), msgValue, queryId);
+
+            const itemData = await regularItem.getNftData();
+            const getStaticTx = findTransactionRequired(res.transactions, {
+                on: regularItem.address,
+                from: deployer.address,
+                op: Op.get_static_data,
+                aborted: false,
+                outMessagesCount: 1
+            });
+
+            const outMsg = getStaticTx.outMessages.get(0)!;
+            if(outMsg.info.type !== 'internal') {
+                throw Error("No way!");
+            }
+
+            reportGas("Report item get static data", getStaticTx);
+            const fwdFee       = computeMessageForwardFees(msgPrices, outMsg);
+            const computePhase = computedGeneric(getStaticTx);
+
+            expect(res.transactions).toHaveTransaction({
+                on: deployer.address,
+                from: regularItem.address,
+                value: msgValue - fwdFee.fees.total - computePhase.gasFees,
+                body: beginCell()
+                        .storeUint(Op.report_static_data, 32)
+                        .storeUint(queryId, 64)
+                        .storeUint(itemData.index, 256)
+                        .storeAddress(nftCollection.address)
+                      .endCell()
+            });
+        }
     });
     it('non-owner should not be able to transfer item', async () => {
 
