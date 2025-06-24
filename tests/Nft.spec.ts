@@ -316,6 +316,61 @@ describe('NFT', () => {
         expect(royaltyParams.base).toEqual(BigInt(newRoyalty.royalty_base));
         expect(royaltyParams.factor).toEqual(BigInt(newRoyalty.royalty_factor));
     });
+    it('Item deploy should check for same auction limits as start auction', async () => {
+            // Minimal value from contract
+            const week = 3600 * 24 * 7;
+            const extendsByMoreThanAweek = {...defaultAuctionConfig, min_extend_time: week + 1}
+
+            const year = 3600 * 24 * 365;
+            const durationMoreThanAyear = {...defaultAuctionConfig, duration: year + 1};
+
+
+            const minBidStepZero = {...defaultAuctionConfig, min_bid_step: 0n};
+
+
+            const minValue = min_storage * 2n;
+            const minBidLessMinVal = {...defaultAuctionConfig, min_bid: minValue - 1n};
+
+            const maxBidLessThanMinBid = {...defaultAuctionConfig, max_bid: defaultAuctionConfig.min_bid - 1n};
+
+            for(let testConfig of [minBidLessMinVal, maxBidLessThanMinBid, minBidStepZero, durationMoreThanAyear, extendsByMoreThanAweek]) {
+                await blockchain.loadFrom(initialState)
+                const bidValue = defaultAuctionConfig.min_bid + (BigInt(getRandomInt(1, 10)) * toNano('0.1'))
+                const itemContentCell = nftContentToCell({type: 'offchain', uri: `my_nft.json`});
+                const token_name = "Test item 42";
+                const nftItem = await nftItemByName(token_name);
+
+
+                const res = await nftCollection.sendDeployItem(deployer.getSender(), {
+                    token_name,
+                    actuion_config: testConfig,
+                    content: itemContentCell
+                },
+                {
+                    privateKey: keyPair.secretKey,
+                    valid_since: blockchain.now! - 1,
+                    valid_till: blockchain.now! + 100,
+                    subwallet_id
+                }, bidValue);
+
+                const collectionPart = findTransactionRequired(res.transactions,{
+                    on: nftCollection.address,
+                    from: deployer.address,
+                    aborted: false,
+                    outMessagesCount: 1
+                });
+
+                const deployTx = findTransactionRequired(res.transactions, {
+                    on: nftItem.address,
+                    from: nftCollection.address,
+                    deploy: true,
+                    aborted: false
+                });
+
+                const dataAfter = await nftItem.getNftData();
+                expect(dataAfter.isInit).toBe(false);
+            }
+        })
     it('should return funds if item is already deployed', async () => {
         await blockchain.loadFrom(itemsDeployedState);
 
