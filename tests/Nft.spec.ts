@@ -751,6 +751,7 @@ describe('NFT', () => {
 
                 const smc = await blockchain.getContract(item.address);
                 let balanceBefore = smc.balance;
+                let royaltyAmount = 0n;
                 const auctionState = await item.getAuctionState();
                 const configBefore  = await item.getAuctionConfig();
                 const stateBefore   = await item.getNftData();
@@ -763,6 +764,8 @@ describe('NFT', () => {
                 expect(configBefore.duration).not.toBe(0);
                 expect(configBefore.extend_time).not.toBe(0);
 
+                const royaltyIsBefiniciar = configBefore.benificiary!.equals(royaltyParams.royalty_dst);
+
                 const res = await endAuction(item, bid) // await item.sendBet(otherBidder.getSender(), defaultAuctionConfig.max_bid);
 
                 const newOwner = (await item.getNftData()).owner;
@@ -772,7 +775,7 @@ describe('NFT', () => {
                     on: item.address,
                     value: bid > 0n ? bid : undefined, // If no bid specify, just don't check value at all
                     aborted: false,
-                    outMessagesCount: newBid ? 4 : 3
+                    outMessagesCount: (newBid ? 4 : 3) - Number(royaltyIsBefiniciar)
                 });
 
                 const computed = computedGeneric(bidTx);
@@ -807,15 +810,17 @@ describe('NFT', () => {
                     }
                 }
 
-                const royaltyAmount = lastBid * royaltyParams.factor / royaltyParams.base;
-                expect(res.transactions).toHaveTransaction({
-                    on: royaltyWallet.address,
-                    op: Op.fill_up,
-                    value: royaltyAmount - msgPrices.lumpPrice
-                });
+                if(!royaltyIsBefiniciar) {
+                    royaltyAmount = lastBid * royaltyParams.factor / royaltyParams.base;
+                    expect(res.transactions).toHaveTransaction({
+                        on: royaltyWallet.address,
+                        op: Op.fill_up,
+                        value: royaltyAmount - msgPrices.lumpPrice
+                    });
+                }
 
                 const balanceDuring = balanceBefore - storage.storageFeesCollected - inFee + (lastBid - auctionState.bid) - royaltyAmount;
-                let expTransfer = configBefore.benificiary?.equals(royaltyParams.royalty_dst) ? lastBid : lastBid - royaltyAmount;
+                let expTransfer     = lastBid - royaltyAmount;
 
                 if(expTransfer > balanceDuring - min_storage) {
                     expTransfer = balanceDuring - min_storage;
@@ -1014,6 +1019,71 @@ describe('NFT', () => {
                 }
                 // Souldn't end if off by one
                 await expect(assertAuctionEnded(regularItem, async (item, bid) => item.sendBet(otherBidder.getSender(), bid), defaultAuctionConfig.max_bid - 1n)).rejects.toThrow();
+            }
+        });
+        it('when royalty address = benificiary, royalty + auction result should be sent in one go', async () => {
+            const bidValue = defaultAuctionConfig.min_bid + toNano('1');
+            const customTokenName = "Royalty equals benificiary token";
+
+            const nftItem = await nftItemByName(customTokenName);
+            const newRoyalty : RoyaltyParameters = {
+                address: defaultAuctionConfig.benificiary,
+                royalty_base: royaltyBase,
+                royalty_factor: royaltyFactor
+            }
+
+            let res = await nftCollection.sendDeployItem(deployer.getSender(), {
+                token_name: customTokenName,
+                actuion_config: defaultAuctionConfig,
+                content: defaultContent,
+                royalty: newRoyalty
+            },
+            {
+                privateKey: keyPair.secretKey,
+                valid_since: blockchain.now! - 1,
+                valid_till: blockchain.now! + 100,
+                subwallet_id
+            }, bidValue);
+
+            const collectionPart = findTransactionRequired(res.transactions,{
+                on: nftCollection.address,
+                from: deployer.address,
+                aborted: false,
+                outMessagesCount: 1
+            });
+
+            const royaltyParams = await nftItem.getRoyaltyParams();
+            expect(royaltyParams.royalty_dst).toEqualAddress(newRoyalty.address);
+            expect(royaltyParams.base).toEqual(BigInt(newRoyalty.royalty_base));
+            expect(royaltyParams.factor).toEqual(BigInt(newRoyalty.royalty_factor));
+
+            const auctionState = await nftItem.getAuctionState();
+
+            const prevState = blockchain.snapshot();
+
+            // All payouts are checked in assertAuctionEnded
+            const endMaxBid = async () => await assertAuctionEnded(nftItem, async (item, bid) => item.sendBet(otherBidder.getSender(), bid), defaultAuctionConfig.max_bid);
+            const endTimeExpire = async () => {
+                blockchain.now = auctionState.end_time + 1;
+                await assertAuctionEnded(nftItem, async (item, bid) => item.sendCheckEndExternal(), 0n);
+            }
+
+            for(let testCase of [endMaxBid, endTimeExpire]) {
+                await testCase();
+                if(testCase === endMaxBid) {
+                    await blockchain.loadFrom(prevState);
+                }
+            }
+
+            // Now let's start new owner auction to make sure logic doesn't change
+
+            await nftItem.sendStartAuction(deployer.getSender(), {...defaultAuctionConfig, benificiary: newRoyalty.address});
+
+            // Otherwise on time expiery no payout will happen, since no bets were made
+            await nftItem.sendBet(otherBidder.getSender(), toNano('1'));
+            for(let testCase of [endMaxBid, endTimeExpire]) {
+                await testCase();
+                await blockchain.loadFrom(prevState);
             }
         });
         it('non-owner should not be able to start an auction', async () => {
