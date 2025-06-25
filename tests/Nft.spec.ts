@@ -764,7 +764,7 @@ describe('NFT', () => {
                 expect(configBefore.duration).not.toBe(0);
                 expect(configBefore.extend_time).not.toBe(0);
 
-                const royaltyIsBefiniciar = configBefore.benificiary!.equals(royaltyParams.royalty_dst);
+                const royaltyIsBefiniciar = configBefore.benificiary!.equals(royaltyParams.royalty_dst) || royaltyParams.factor == 0n || royaltyParams.base == 0n;
 
                 const res = await endAuction(item, bid) // await item.sendBet(otherBidder.getSender(), defaultAuctionConfig.max_bid);
 
@@ -1084,6 +1084,82 @@ describe('NFT', () => {
             for(let testCase of [endMaxBid, endTimeExpire]) {
                 await testCase();
                 await blockchain.loadFrom(prevState);
+            }
+        });
+        it('when royalty factor or base is 0, royalty + auction result should be sent in one go', async () => {
+
+            const bidValue = defaultAuctionConfig.min_bid + toNano('1');
+            const zeroFactor = "Zero factor royalty";
+            const zeroBase   = "Zero base royalty";
+
+            const zeroFactorRoyalty: RoyaltyParameters = {
+                address: royaltyWallet.address,
+                royalty_base: royaltyBase,
+                royalty_factor: 0n
+            }
+            const zeroBaseRoyalty: RoyaltyParameters = {
+                address: royaltyWallet.address,
+                royalty_base: 0n,
+                royalty_factor: royaltyFactor
+            }
+
+            for(let testRoyalty of [zeroFactorRoyalty, zeroBaseRoyalty]) {
+                const testName = testRoyalty.royalty_base == 0n ? zeroFactor : zeroBase;
+                const testItem = await nftItemByName(testName);
+
+                let res = await nftCollection.sendDeployItem(deployer.getSender(), {
+                    token_name: testName,
+                    actuion_config: defaultAuctionConfig,
+                    content: defaultContent,
+                    royalty: testRoyalty
+                },
+                {
+                    privateKey: keyPair.secretKey,
+                    valid_since: blockchain.now! - 1,
+                    valid_till: blockchain.now! + 100,
+                    subwallet_id
+                }, bidValue);
+                expect(res.transactions).toHaveTransaction({
+                    on: testItem.address,
+                    from: nftCollection.address,
+                    deploy: true,
+                    aborted: false
+                });
+
+                const royaltyParams = await testItem.getRoyaltyParams();
+                expect(royaltyParams.royalty_dst).toEqualAddress(testRoyalty.address);
+                expect(royaltyParams.base).toEqual(BigInt(testRoyalty.royalty_base));
+                expect(royaltyParams.factor).toEqual(BigInt(testRoyalty.royalty_factor));
+
+                const auctionState = await testItem.getAuctionState();
+
+                const prevState = blockchain.snapshot();
+
+                // All payouts are checked in assertAuctionEnded
+                const endMaxBid = async () => await assertAuctionEnded(testItem, async (item, bid) => item.sendBet(otherBidder.getSender(), bid), defaultAuctionConfig.max_bid);
+                const endTimeExpire = async () => {
+                    blockchain.now = auctionState.end_time + 1;
+                    await assertAuctionEnded(testItem, async (item, bid) => item.sendCheckEndExternal(), 0n);
+                }
+
+                for(let testCase of [endMaxBid, endTimeExpire]) {
+                    await testCase();
+                    if(testCase === endMaxBid) {
+                        await blockchain.loadFrom(prevState);
+                    }
+                }
+
+                // Now let's start new owner auction to make sure logic doesn't change
+
+                await testItem.sendStartAuction(deployer.getSender(), defaultAuctionConfig);
+
+                // Otherwise on time expiery no payout will happen, since no bets were made
+                await testItem.sendBet(otherBidder.getSender(), toNano('1'));
+                for(let testCase of [endMaxBid, endTimeExpire]) {
+                    await testCase();
+                    await blockchain.loadFrom(prevState);
+                }
+
             }
         });
         it('non-owner should not be able to start an auction', async () => {
