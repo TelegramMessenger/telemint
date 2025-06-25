@@ -1,5 +1,5 @@
 import { Blockchain, SandboxContract, TreasuryContract, BlockchainSnapshot, SendMessageResult } from '@ton/sandbox';
-import { Cell, toNano, beginCell, Transaction, ExternalAddress, Address } from '@ton/core';
+import { Cell, toNano, beginCell, Transaction, ExternalAddress, Address, Message } from '@ton/core';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 import { randomAddress, getRandomInt } from './utils';
@@ -31,6 +31,8 @@ describe('NFT', () => {
     let royaltyBase: number;
 
     let defaultAuctionConfig: AuctionParameters;
+
+    let collectionMessage: Message;
 
     let initialState: BlockchainSnapshot;
     let itemsDeployedState: BlockchainSnapshot;
@@ -244,6 +246,9 @@ describe('NFT', () => {
             aborted: false,
             outMessagesCount: 1
         });
+
+        collectionMessage = collectionPart.outMessages.get(0)!;
+
         reportGas("Deploy on collection costs", collectionPart);
 
         const deployTx = findTransactionRequired(res.transactions, {
@@ -728,7 +733,29 @@ describe('NFT', () => {
             await blockchain.loadFrom(prevState);
         }
     });
+    it('should not be able to replay deploy message from address other than collection', async () => {
+        if(collectionMessage.info.type !== 'internal') {
+            throw new Error("No way");
+        }
 
+        const itemAddr = collectionMessage.info.dest;
+
+        for(let testWallet of [deployer, otherBidder, royaltyWallet]) {
+            const res = await testWallet.send({
+                to: itemAddr,
+                body: collectionMessage.body,
+                init: collectionMessage.init,
+                value: collectionMessage.info.value.coins
+            });
+
+            expect(res.transactions).toHaveTransaction({
+                on: itemAddr,
+                op: Op.teleitem_msg_deploy,
+                aborted: true,
+                exitCode: Errors.uninited
+            });
+        }
+    });
 
     it.skip('should return joined content', async () => {
         const testContent = nftContentToCell({type: 'offchain', 'uri': 'my_nft.json'});
