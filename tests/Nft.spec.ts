@@ -878,7 +878,7 @@ describe('NFT', () => {
             let nextBet = computeNextBid(newBet, defaultAuctionConfig.min_bid_step);
 
             blockchain.now = curTime() + getRandomInt(1, 1000);
-            let res = await regularItem.sendBet(otherBidder.getSender(), newBet);
+            let res = await regularItem.sendBet(otherBidder.getSender(), newBet, 'empty_body');
 
             const smc = await blockchain.getContract(regularItem.address);
 
@@ -913,7 +913,7 @@ describe('NFT', () => {
 
             // Now let's test case where nextBet 10% is larger than 1 TON
 
-            res = await regularItem.sendBet(deployer.getSender(), newBet);
+            res = await regularItem.sendBet(deployer.getSender(), newBet, 'op_zero');
 
             bidTx = findTransactionRequired(res.transactions, {
                 on:regularItem.address,
@@ -986,13 +986,17 @@ describe('NFT', () => {
         it('should not accept bids after end_time', async () => {
             const stateBefore = await regularItem.getAuctionState();
             blockchain.now = stateBefore.end_time + 1;
-            const res = await regularItem.sendBet(otherBidder.getSender(), stateBefore.min_bid + 1n);
-            expect(res.transactions).toHaveTransaction({
-                on: regularItem.address,
-                from: otherBidder.address,
-                aborted: true,
-                exitCode: Errors.forbidden_topup
-            });
+            let testModes: ('empty_body' | 'op_zero')[] = ['empty_body', 'op_zero'];
+
+            for(let mode of testModes) {
+                const res = await regularItem.sendBet(otherBidder.getSender(), stateBefore.min_bid + 1n, mode);
+                expect(res.transactions).toHaveTransaction({
+                    on: regularItem.address,
+                    from: otherBidder.address,
+                    aborted: true,
+                    exitCode: Errors.forbidden_topup
+                });
+            }
         });
 
         it('should be able to end initial auction by reaching max bid', async () => {
@@ -1485,7 +1489,7 @@ describe('NFT', () => {
             let nextBet = computeNextBid(newBet, defaultAuctionConfig.min_bid_step);
 
             blockchain.now = curTime() + getRandomInt(1, 1000);
-            let res = await regularItem.sendBet(otherBidder.getSender(), newBet);
+            let res = await regularItem.sendBet(otherBidder.getSender(), newBet, 'empty_body');
 
             const smc = await blockchain.getContract(regularItem.address);
 
@@ -1524,7 +1528,7 @@ describe('NFT', () => {
 
             // Now let's test case where nextBet 10% is larger than 1 TON
 
-            res = await regularItem.sendBet(deployer.getSender(), newBet);
+            res = await regularItem.sendBet(deployer.getSender(), newBet, 'op_zero');
 
             bidTx = findTransactionRequired(res.transactions, {
                 on:regularItem.address,

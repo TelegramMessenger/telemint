@@ -54,9 +54,10 @@ export class NftItem implements Contract {
         });
     }
 
-    async sendBet(provider: ContractProvider, via: Sender, value: bigint) {
+    async sendBet(provider: ContractProvider, via: Sender, value: bigint, mode: 'empty_body' | 'op_zero' = 'empty_body') {
         await provider.internal(via, {
             value,
+            body: mode == 'empty_body' ? undefined : beginCell().storeUint(0, 32).endCell(),
             sendMode: SendMode.PAY_GAS_SEPARATELY
         });
     }
