@@ -1907,6 +1907,66 @@ describe('NFT', () => {
             }
         }
     });
+    it('non-initialized item should not be able to process any operations besides deploy', async () => {
+        const prevState = blockchain.snapshot();
+
+        await blockchain.loadFrom(initialState);
+
+        if(collectionMessage.info.type !== 'internal') {
+            throw new Error("No way");
+        }
+
+        const itemAddr = collectionMessage.info.dest;
+        const nftItem  = blockchain.openContract(NftItem.createFromAddress(itemAddr));
+
+        await deployer.send({
+            to: nftItem.address,
+            body: collectionMessage.body,
+            init: collectionMessage.init,
+            value: collectionMessage.info.value.coins
+        });
+
+        const itemData = await nftItem.getNftData();
+        expect(itemData.isInit).toBe(false);
+
+        let testBetEmpty  = async (wallet: SandboxContract<TreasuryContract>) => await nftItem.sendBet(wallet.getSender(), toNano('1000'), 'empty_body');
+        let testBetOpZero = async (wallet: SandboxContract<TreasuryContract>) => await nftItem.sendBet(wallet.getSender(), toNano('1000'), 'op_zero');
+        let testGetStaticData = async (wallet: SandboxContract<TreasuryContract>) => await nftItem.sendGetStaticData(wallet.getSender());
+        let testGetRoyaltyParams = async (wallet: SandboxContract<TreasuryContract>) => await nftItem.sendGetRoyaltyParams(wallet.getSender());
+        let testTransfer = async (wallet: SandboxContract<TreasuryContract>) => await nftItem.sendTransfer(wallet.getSender(), wallet.address, null);
+        let testStartAuction  = async (wallet: SandboxContract<TreasuryContract>) => await nftItem.sendStartAuction(wallet.getSender(), defaultAuctionConfig);
+        let testCancelAuction = async (wallet: SandboxContract<TreasuryContract>) => await nftItem.sendCancelAuction(wallet.getSender());
+
+        let testTopUp = async (wallet: SandboxContract<TreasuryContract>) => await wallet.send({
+            to: nftItem.address,
+            body: beginCell().storeUint(0, 32).storeStringTail("#topup").endCell(),
+            value: toNano('1')
+        });
+
+        let testCases = [
+            testBetEmpty,
+            testBetOpZero,
+            testGetStaticData,
+            testGetRoyaltyParams,
+            testTransfer,
+            testStartAuction,
+            testStartAuction,
+            testCancelAuction,
+            testTopUp];
+
+        for(let testWallet of [deployer, otherBidder, royaltyWallet]) {
+            for(let testCase of testCases) {
+                const res = await testCase(testWallet);
+                expect(res.transactions).toHaveTransaction({
+                    on: nftItem.address,
+                    aborted: true,
+                    exitCode: Errors.uninited
+                });
+            }
+        }
+
+        await blockchain.loadFrom(prevState);
+    });
     it('non-owner should not be able to transfer item', async () => {
 
         const deployerItem = regularItem;
