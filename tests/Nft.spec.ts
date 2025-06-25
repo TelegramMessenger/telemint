@@ -370,7 +370,7 @@ describe('NFT', () => {
                 const dataAfter = await nftItem.getNftData();
                 expect(dataAfter.isInit).toBe(false);
             }
-        })
+    })
     it('should return funds if item is already deployed', async () => {
         await blockchain.loadFrom(itemsDeployedState);
 
@@ -995,6 +995,17 @@ describe('NFT', () => {
                     from: otherBidder.address,
                     aborted: true,
                     exitCode: Errors.forbidden_topup
+                });
+            }
+
+            // However from owner this should be accepted as topup
+            // Looks like a questionable decision for me
+            for(let mode of testModes) {
+                const res = await regularItem.sendBet(deployer.getSender(), stateBefore.min_bid + 1n, mode);
+                expect(res.transactions).toHaveTransaction({
+                    on: regularItem.address,
+                    from: deployer.address,
+                    aborted: false
                 });
             }
         });
