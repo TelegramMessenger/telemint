@@ -1653,6 +1653,42 @@ describe('NFT', () => {
                 await expect(assertAuctionEnded(regularItem, async (item, bid) => item.sendBet(otherBidder.getSender(), bid), curConfig.max_bid - 1n)).rejects.toThrow();
             }
         });
+        it('malformed topup and arbitrary comment msg should end up as bet during auction', async () => {
+            const notTopup  = beginCell().storeBuffer(Buffer.from("#not_topup")).endCell();
+            const substring = beginCell().storeBuffer(Buffer.from("#topup#topup")).endCell();
+            const snakeRef  = beginCell().storeStringRefTail("#topup").endCell();
+            const tailRef   = beginCell().storeBuffer(Buffer.from("#topup")).storeRef(beginCell().storeBuffer(Buffer.from("someOtherItem")).endCell()).endCell();
+            const snakeTail = beginCell().storeBuffer(Buffer.from("#top")).storeRef(beginCell().storeBuffer(Buffer.from("up")).endCell()).endCell();
+
+
+            // During auction this behaviour will be considered stake
+            for(let testState of [itemsDeployedState, ownerStartedAuction]) {
+                await blockchain.loadFrom(testState);
+                const auctionConfig = await regularItem.getAuctionConfig();
+                const auctionState = await regularItem.getAuctionState();
+
+                for(let testWallet of [deployer, otherBidder, royaltyWallet]) {
+                    for(let testPayload of [notTopup, substring, snakeRef, tailRef, snakeTail]) {
+                        const res = await testWallet.send({
+                            to: regularItem.address,
+                            value: computeNextBid(auctionState.bid, auctionConfig.min_bid_step) + 1n,
+                            body: beginCell().storeUint(0, 32).storeSlice(testPayload.asSlice()).endCell()
+                        });
+
+                        expect(res.transactions).toHaveTransaction({
+                            on: regularItem.address,
+                            op: 0,
+                            aborted: false
+                        });
+
+                        const stateAfter = await regularItem.getAuctionState();
+                        expect(stateAfter.bid).toBeGreaterThan(auctionState.bid);
+
+                        await blockchain.loadFrom(testState);
+                    }
+                }
+            }
+        });
     });
     describe('Item', () => {
         beforeEach(async () => await blockchain.loadFrom(initialAuctionDone));
@@ -1783,6 +1819,65 @@ describe('NFT', () => {
                         .storeAddress(nftCollection.address)
                       .endCell()
             });
+        }
+    });
+    it('should top up with specifically crafted message at any state and any src', async () => {
+        for(let testState of [itemsDeployedState, ownerStartedAuction, initialAuctionDone]) {
+            await blockchain.loadFrom(testState);
+            for(let testWallet of [deployer, otherBidder, royaltyWallet]) {
+                const res = await testWallet.send({
+                    to: regularItem.address,
+                    value: BigInt(getRandomInt(1, 1337)) * toNano('0.01'),
+                    body: beginCell().storeUint(0, 32).storeBuffer(Buffer.from("#topup")).endCell()
+                });
+
+                expect(res.transactions).toHaveTransaction({
+                    on: regularItem.address,
+                    from: testWallet.address,
+                    aborted: false,
+                    outMessagesCount: 0
+                });
+            }
+        }
+    });
+    it('should reject malformed topup or arbitrary comment after auction unless from owner', async () => {
+        const notTopup  = beginCell().storeBuffer(Buffer.from("#not_topup")).endCell();
+        const substring = beginCell().storeBuffer(Buffer.from("#topup#topup")).endCell();
+        const snakeRef  = beginCell().storeStringRefTail("#topup").endCell();
+        const tailRef   = beginCell().storeBuffer(Buffer.from("#topup")).storeRef(beginCell().storeBuffer(Buffer.from("someOtherItem")).endCell()).endCell();
+        const snakeTail = beginCell().storeBuffer(Buffer.from("#top")).storeRef(beginCell().storeBuffer(Buffer.from("up")).endCell()).endCell();
+
+        await blockchain.loadFrom(initialAuctionDone);
+
+        const itemData = await regularItem.getNftData();
+
+        for(let testWallet of [deployer, otherBidder, royaltyWallet]) {
+            const isOwner = itemData.owner?.equals(testWallet.address);
+
+            for(let testPayload of [notTopup, substring, snakeRef, tailRef, snakeTail]) {
+                const res = await testWallet.send({
+                    to: regularItem.address,
+                    value: BigInt(getRandomInt(1, 100_000)) * toNano('0.01'),
+                    body: beginCell().storeUint(0, 32).storeSlice(testPayload.asSlice()).endCell()
+                });
+
+                if(isOwner) {
+                    expect(res.transactions).toHaveTransaction({
+                        on: regularItem.address,
+                        from: testWallet.address,
+                        op: 0,
+                        aborted: false,
+                        outMessagesCount: 0
+                    });
+                } else {
+                    expect(res.transactions).toHaveTransaction({
+                        on: regularItem.address,
+                        from: testWallet.address,
+                        aborted: true,
+                        exitCode: Errors.forbidden_topup
+                    });
+                }
+            }
         }
     });
     it('non-owner should not be able to transfer item', async () => {
