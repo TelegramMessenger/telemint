@@ -6,9 +6,9 @@
   },
   "devDependencies": {
     "@ton/blueprint": "^0.31.1",
-    "@ton/core": "^0.60.1",
-    "@ton/sandbox": "^0.28.0",
-    "@ton/test-utils": "^0.5.0",
+    "@ton/core": "^0.61.0",
+    "@ton/sandbox": "^0.34.0",
+    "@ton/test-utils": "^0.8.0",
     "@types/jest": "^29.5.11",
     "jest": "^29.7.0",
     "ts-jest": "^29.3.2",
