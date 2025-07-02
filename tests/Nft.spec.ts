@@ -2091,6 +2091,9 @@ describe('NFT', () => {
         // Dropping outgoing messages should result in lowering minimal fee
         for(let testVector of [{refund: null, amount: forwardAmount}, {refund: dstAddr, amount: 0n}]) {
             await blockchain.loadFrom(initialAuctionDone);
+            smc = await blockchain.getContract(deployerItem.address);
+            smc.balance = min_storage;
+
             // Accepted minFee should be lowered by 1 expected forward fee
             res = await deployerItem.sendTransfer(deployer.getSender(), dstAddr, testVector.refund, testVector.amount, forwardPayload, minFee - expFee, testQueryId);
 
@@ -2114,6 +2117,9 @@ describe('NFT', () => {
 
         // Now try minimal fee
         await blockchain.loadFrom(initialAuctionDone);
+        smc = await blockchain.getContract(deployerItem.address);
+        smc.balance = min_storage;
+
         res = await deployerItem.sendTransfer(deployer.getSender(), dstAddr, royaltyWallet.address, forwardAmount, forwardPayload, minFee, testQueryId);
 
         expect(res.transactions).toHaveTransaction({
